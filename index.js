@@ -6,7 +6,7 @@ client.once('ready', () => {
 	console.log('Ready!');
 });
 
-client.login(token);
+client.login();
 
 client.on('message', message => {
     if (!message.content.startsWith(prefix) || message.author.bot) return;
