@@ -25,8 +25,18 @@ client.on('message', message => {
             });
             message.channel.send(result);
         } else if (args[0] === 'register') {
-            participants.push(message.author.username);
-            message.channel.send(message.author.username + ', you are now registered for the tournament!');
+            let check = false;
+            for (let i = 0; i < participants.length; i++) {
+                if (participants[i] === message.author.username) {
+                    check = true;
+                }
+            }
+            if (check) {
+                message.channel.send(message.author.username + ', you are already registered for the tournament.');
+            } else {
+                participants.push(message.author.username);
+                message.channel.send(message.author.username + ', you are now registered for the tournament!');
+            }
         } else if (args[0] === 'unregister') { 
             let check = false;
             for (let i = 0; i < participants.length; i++) {
