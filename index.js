@@ -53,7 +53,6 @@ client.on('message', message => {
         }
     }
     if (command === 'summon') {
-        // send back "Pong." to the channel the message was sent in
         message.channel.send(':HandsUp:');
     }
 });
