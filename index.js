@@ -16,7 +16,7 @@ client.on('message', message => {
 
 	if (command === 'tournament') {
         // send back "Pong." to the channel the message was sent in
-        if(args[0] === undefined) {
+        if (args[0] === undefined) {
             message.channel.send('The first tournament of Set 4 will take place Saturday, September 26. Prizing details will be posted soon.');
         } else if (args[0] === 'participants') {
             let result = 'Registered: ';
