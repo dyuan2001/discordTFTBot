@@ -14,19 +14,20 @@ client.on('message', message => {
     const args = message.content.slice(prefix.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
 
-	if (command === tournament) {
+	if (command === 'tournament') {
         // send back "Pong." to the channel the message was sent in
-        if(args[0] === null) {
+        if(args[0] === undefined) {
             message.channel.send('The first tournament of Set 4 will take place Saturday, September 26. Prizing details will be posted soon.');
-        } else if (args[0] === participants) {
+        } else if (args[0] === 'participants') {
             let result = 'Registered: ';
             participants.forEach(participant => {
                 result = result + participant + ' ';
             });
-        } else if (args[0] === register) {
+            message.channel.send(result);
+        } else if (args[0] === 'register') {
             participants.push(message.author.username);
             message.channel.send(message.author.username + ', you are now registered for the tournament!');
-        } else if (args[0] === unregister) { 
+        } else if (args[0] === 'unregister') { 
             let check = false;
             for (let i = 0; i < participants.length; i++) {
                 if (participants[i] === message.author.username) {
@@ -41,7 +42,7 @@ client.on('message', message => {
             }
         }
     }
-    if (command === summon) {
+    if (command === 'summon') {
         // send back "Pong." to the channel the message was sent in
         message.channel.send(':HandsUp:');
     }
