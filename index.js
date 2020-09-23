@@ -55,7 +55,30 @@ client.on('message', message => {
     if (command === 'summon') {
         message.channel.send(':HandsUp:');
     }
+    if (command === 'user') {
+        const taggedUser = message.mentions.users.first();
+        if (args[0] === 'add') {
+            if (userInfo.has(message.author.username)) {
+                message.channel.send('You already have a summoner name associated with you. Try changing it instead.');
+            } else {
+                userInfo.set(message.author.username, {
+                    summoner: args[1],
+                    rank: null,
+                    comps: null
+                });
+                message.channel.send('Summoner name sucessfully added!');
+            }
+        } else if (args[0] === 'lolchess') {
+            if (userInfo.has(taggedUser.username)) {
+                message.channel.send('https://lolchess.gg/profile/na/' + userInfo.get(taggedUser.username).summoner);
+            } else {
+                message.channel.send('This user has not set a summoner name yet.');
+            }
+        }
+    }
 });
 
 //Array for tournament participants
 let participants = [];
+
+let userInfo = new Map();
