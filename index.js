@@ -1,6 +1,7 @@
 require('dotenv').config();
 const Discord = require('discord.js');
 const client = new Discord.Client();
+import { TftApi, Constants } from 'twisted'
 
 client.once('ready', () => {
 	console.log('Ready!');
@@ -74,6 +75,13 @@ client.on('message', message => {
             } else {
                 message.channel.send('This user has not set a summoner name yet.');
             }
+        } else if (args[0] === 'matches') {
+            const taggedUser = message.mentions.users.first();
+            if (userInfo.has(taggedUser.username)) {
+                message.channel.send(matchListTft(userInfo.get(taggedUser.username).summoner));
+            } else {
+                message.channel.send('This user has not set a summoner name yet.');
+            }
         }
     }
 });
@@ -82,3 +90,14 @@ client.on('message', message => {
 let participants = [];
 
 let userInfo = new Map();
+
+const api = new TftApi({key: process.env.RIOT_GAMES_API_KEY})
+
+export async function matchListTft (summonerName) {
+    const {
+      response: {
+        puuid
+      }
+    } = await api.Summoner.getByName(summonerName, Constants.Regions.AMERICA_NORTH);
+    return api.Match.list(puuid, Constants.TftRegions.AMERICAS);
+  }
