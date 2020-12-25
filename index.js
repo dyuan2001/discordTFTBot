@@ -16,7 +16,6 @@ client.on('message', message => {
     const command = args.shift().toLowerCase();
 
 	if (command === 'tournament') {
-        // send back "Pong." to the channel the message was sent in
         if (args[0] === undefined) {
             message.channel.send('The first tournament of Set 4 will take place Saturday, September 26. Prizing details will be posted soon.');
         } else if (args[0] === 'participants') {
@@ -75,11 +74,9 @@ client.on('message', message => {
                     .then(message => {
                     message = message.first();
                     if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
-                        userInfo.set(message.author.username, {
-                            summoner: newName,
-                            rank: null,
-                            comps: null
-                        });
+                        changeUserInfo(newName, message.author.username)
+                        .then(resolve => console.log('Success!'))
+                        .catch(failure => console.log('Failed. - ' + failure));
                         message.channel.send('Summoner name changed successfully to ' + newName + '.');
                     } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
                         message.channel.send('Summoner name unchanged.');
@@ -92,20 +89,28 @@ client.on('message', message => {
                     });
                 })
             } else {
-                userInfo.set(message.author.username, {
-                    summoner: args[1],
-                    rank: null,
-                    comps: null
-                });
+                changeUserInfo(args[1], message.author.username)
+                .then(resolve => console.log('Success!'))
+                .catch(failure => console.log('Failed. - ' + failure));
                 message.channel.send('Summoner name ' + args[1] + ' successfully added!');
             }
         } else if (args[0] === 'change') {
-            userInfo.set(message.author.username, {
-                summoner: args[1],
-                rank: null,
-                comps: null
-            });
+            changeUserInfo(args[1], message.author.username)
+            .then(resolve => console.log('Success!'))
+            .catch(failure => console.log('Failed. - ' + failure));
             message.channel.send('Summoner name successfully changed to ' + args[1] + '.');
+        } else if (args[0] === 'rank') {
+            const taggedUser = message.mentions.users.first();
+            if (userInfo.has(taggedUser.username)) {
+                info = userInfo.get(taggedUser.username)
+                if (info.rank != null) {
+                    message.channel.send(taggedUser.username + `'s rank is ` + info.rank + '. (Summoner name: ' + info.summoner + ')');
+                } else {
+                    message.channel.send(taggedUser.username + ' has an error with their rank.');
+                }
+            } else {
+                message.channel.send(taggedUser.username + ' has not set a summoner yet.');
+            }
         } else if (args[0] === 'lolchess') {
             if (userInfo.has(taggedUser.username)) {
                 message.channel.send('https://lolchess.gg/profile/na/' + userInfo.get(taggedUser.username).summoner);
@@ -148,7 +153,7 @@ const api = new twisted.TftApi({rateLimitRetry: true,
     }
   })
 
-async function matchListTft (summonerName) {
+async function matchListTft(summonerName) {
     console.log('In async function.');
     const {
       response: {
@@ -158,3 +163,29 @@ async function matchListTft (summonerName) {
     console.log(puuid)
     return await api.Match.list(puuid, twisted.Constants.TftRegions.AMERICAS, 20);
   }
+
+async function userLeagueTft(summonerName) {
+    const {
+        response: {
+            id
+        }
+    }  = await api.Summoner.getByName(summonerName, twisted.Constants.Regions.AMERICA_NORTH);
+    return await api.League.get(id, twisted.Constants.Regions.AMERICA_NORTH);
+}
+
+async function changeUserInfo(summonerName, username) {
+    await userLeagueTft(summonerName)
+    .then((resolve) => {
+        rank = resolve.response[0].tier + ' ' + resolve.response[0].rank;
+    })
+    .catch((failure) => {
+        console.log(failure);
+        rank = null;
+    })
+
+    userInfo.set(username, {
+        summoner: summonerName,
+        rank: rank,
+        comps: null
+    });
+}
