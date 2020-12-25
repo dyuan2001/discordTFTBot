@@ -1,7 +1,7 @@
 require('dotenv').config();
 const Discord = require('discord.js');
 const client = new Discord.Client();
-import { TftApi, Constants } from 'twisted'
+const twisted = require('twisted');
 
 client.once('ready', () => {
 	console.log('Ready!');
@@ -78,7 +78,16 @@ client.on('message', message => {
         } else if (args[0] === 'matches') {
             const taggedUser = message.mentions.users.first();
             if (userInfo.has(taggedUser.username)) {
-                message.channel.send(matchListTft(userInfo.get(taggedUser.username).summoner));
+                matchListTft(userInfo.get(taggedUser.username).summoner)
+                .then((resolve) => {
+                    console.log('Matches found!');
+                    console.log(resolve);
+                    message.channel.send(resolve.response.join('\n')); 
+                })
+                .catch((failure) => {
+                    console.log('Matches not found.');
+                    console.log(failure);
+                });
             } else {
                 message.channel.send('This user has not set a summoner name yet.');
             }
@@ -91,13 +100,24 @@ let participants = [];
 
 let userInfo = new Map();
 
-const api = new TftApi({key: process.env.RIOT_GAMES_API_KEY})
+const api = new twisted.TftApi({rateLimitRetry: true,
+    rateLimitRetryAttempts: 1,
+    concurrency: undefined,
+    key: process.env.RIOT_GAMES_API_KEY,
+    debug: {
+      logTime: false,
+      logUrls: false,
+      logRatelimit: false
+    }
+  })
 
-export async function matchListTft (summonerName) {
+async function matchListTft (summonerName) {
+    console.log('In async function.');
     const {
       response: {
         puuid
       }
-    } = await api.Summoner.getByName(summonerName, Constants.Regions.AMERICA_NORTH);
-    return api.Match.list(puuid, Constants.TftRegions.AMERICAS);
+    } = await api.Summoner.getByName(summonerName, twisted.Constants.Regions.AMERICA_NORTH);
+    console.log(puuid)
+    return await api.Match.list(puuid, twisted.Constants.TftRegions.AMERICAS, 20);
   }
