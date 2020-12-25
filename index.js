@@ -56,19 +56,56 @@ client.on('message', message => {
     if (command === 'summon') {
         message.channel.send(':HandsUp:');
     }
+    /*
+    USER SECTION
+    */
     if (command === 'user') {
         const taggedUser = message.mentions.users.first();
         if (args[0] === 'add') {
             if (userInfo.has(message.author.username)) {
-                message.channel.send('You already have a summoner name associated with you. Try changing it instead.');
+                let filter = m => m.author.id === message.author.id;
+                let newName = args[1];
+                let info = userInfo.get(message.author.username);
+                message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
+                message.channel.awaitMessages(filter, {
+                    max: 1,
+                    time: 30000,
+                    errors: ['time']
+                    })
+                    .then(message => {
+                    message = message.first();
+                    if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
+                        userInfo.set(message.author.username, {
+                            summoner: newName,
+                            rank: null,
+                            comps: null
+                        });
+                        message.channel.send('Summoner name changed successfully to ' + newName + '.');
+                    } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
+                        message.channel.send('Summoner name unchanged.');
+                    } else {
+                        message.channel.send('Invalid response - please redo the command and enter either Y or N.');
+                    }
+                    })
+                    .catch(collected => {
+                        message.channel.send('Command has timed out.');
+                    });
+                })
             } else {
                 userInfo.set(message.author.username, {
                     summoner: args[1],
                     rank: null,
                     comps: null
                 });
-                message.channel.send('Summoner name sucessfully added!');
+                message.channel.send('Summoner name ' + args[1] + ' successfully added!');
             }
+        } else if (args[0] === 'change') {
+            userInfo.set(message.author.username, {
+                summoner: args[1],
+                rank: null,
+                comps: null
+            });
+            message.channel.send('Summoner name successfully changed to ' + args[1] + '.');
         } else if (args[0] === 'lolchess') {
             if (userInfo.has(taggedUser.username)) {
                 message.channel.send('https://lolchess.gg/profile/na/' + userInfo.get(taggedUser.username).summoner);
