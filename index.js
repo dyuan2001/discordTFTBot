@@ -72,12 +72,13 @@ client.on('message', message => {
         const taggedUser = message.mentions.users.first();
         if (args[0] === 'add') {
             containsUserInfo(message.author)
-            .then(resolve => {
+            .then(async function addUser(resolve) {
+                console.log('hello ' + resolve);
                 if (resolve) {
                     console.log('in here');
                     let filter = m => m.author.id === message.author.id;
                     let newName = args[1];
-                    let info = getUserInfo(message.author);
+                    let info = await getUserInfo(message.author);
                     message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
                     message.channel.awaitMessages(filter, {
                         max: 1,
@@ -115,41 +116,53 @@ client.on('message', message => {
             message.channel.send('Summoner name successfully changed to ' + args[1] + '.');
         } else if (args[0] === 'rank') {
             const taggedUser = message.mentions.users.first();
-            if (containsUserInfo(taggedUser.id)) {
-                info = getUserInfo(taggedUser.id).then();
-                if (info.rank != null) {
-                    message.channel.send(taggedUser.username + `'s rank is ` + info.rank + '. (Summoner name: ' + info.summoner + ')');
+            containsUserInfo(taggedUser)
+            .then(resolve => {
+                if (resolve) {
+                    getUserInfo(taggedUser)
+                    .then(info => {
+                        if (info.rank != null) {
+                            message.channel.send(taggedUser.username + `'s rank is ` + info.rank + '. (Summoner name: ' + info.summoner + ')');
+                        } else {
+                            message.channel.send(taggedUser.username + ' has an error with their rank.');
+                        }
+                    })
                 } else {
-                    message.channel.send(taggedUser.username + ' has an error with their rank.');
+                    message.channel.send(taggedUser.username + ' has not set a summoner yet.');
                 }
-            } else {
-                message.channel.send(taggedUser.username + ' has not set a summoner yet.');
-            }
+            });
         } else if (args[0] === 'lolchess') {
-            if (containsUserInfo(message.author)) {
-                getUserInfo(message.author)
-                .then(info => {console.log(info);
-                    message.channel.send('https://lolchess.gg/profile/na/' + info.summoner)
-                });
-            } else {
-                message.channel.send('This user has not set a summoner name yet.');
-            }
+            containsUserInfo(message.author)
+            .then(resolve => {
+                if (resolve) {
+                    getUserInfo(message.author)
+                    .then(info => {
+                        console.log(info);
+                        message.channel.send('https://lolchess.gg/profile/na/' + info.summoner)
+                    });
+                } else {
+                    message.channel.send('This user has not set a summoner name yet.');
+                }
+            })
         } else if (args[0] === 'matches') {
             const taggedUser = message.mentions.users.first();
-            if (containsUserInfo(taggedUser.id)) {
-                matchListTft(getUserInfo(taggedUser.id).summoner)
-                .then((resolve) => {
-                    console.log('Matches found!');
-                    console.log(resolve);
-                    message.channel.send(resolve.response.join('\n')); 
-                })
-                .catch((failure) => {
-                    console.log('Matches not found.');
-                    console.log(failure);
-                });
-            } else {
-                message.channel.send('This user has not set a summoner name yet.');
-            }
+            containsUserInfo(taggedUser)
+            .then(resolve => {
+                if (resolve) {
+                    matchListTft(getUserInfo(taggedUser).summoner)
+                    .then((resolve) => {
+                        console.log('Matches found!');
+                        console.log(resolve);
+                        message.channel.send(resolve.response.join('\n')); 
+                    })
+                    .catch((failure) => {
+                        console.log('Matches not found.');
+                        console.log(failure);
+                    });
+                } else {
+                    message.channel.send('This user has not set a summoner name yet.');
+                }
+            })  
         }
     }
 });
@@ -238,7 +251,7 @@ async function containsUserInfo(author) {
         }
     };
 
-    await docClient.get(params).promise()
+    let result = await docClient.get(params).promise()
     .then(response => {
         console.log('not empty ' + response.Item);
         if (response.Item != undefined) {
@@ -253,6 +266,8 @@ async function containsUserInfo(author) {
         console.log('empty' + error);
         return false;
     })
+
+    return result;
 
     // console.log(result);
 
