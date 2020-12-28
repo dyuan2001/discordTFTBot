@@ -8,3 +8,12 @@
  - Match history analysis
  - Favorite compositions for each user
  - Database integration to save data through bot restarts
+
+## Readable Match History
+ - Reads in units for the player
+ - Finds carry (character with most items, tie TBD)
+ - Displays in format {Date - Placement - Carry (Item/Item/Item)}
+ - Saves match history in database
+  - Refresh finds new games to add to database
+  - Adds new game IDs until latest game ID is found
+ - Specific match history details can be called as an embed message

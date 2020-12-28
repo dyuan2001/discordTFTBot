@@ -3,6 +3,16 @@ const Discord = require('discord.js');
 const client = new Discord.Client();
 const twisted = require('twisted');
 
+const AWS = require('aws-sdk');
+const { IdentityStore } = require('aws-sdk');
+AWS.config.update({
+    region: process.env.AWS_DEFAULT_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+})
+const docClient = new AWS.DynamoDB.DocumentClient();
+
+
 client.once('ready', () => {
 	console.log('Ready!');
 });
@@ -27,20 +37,20 @@ client.on('message', message => {
         } else if (args[0] === 'register') {
             let check = false;
             for (let i = 0; i < participants.length; i++) {
-                if (participants[i] === message.author.username) {
+                if (participants[i] === message.author.id) {
                     check = true;
                 }
             }
             if (check) {
                 message.channel.send(message.author.username + ', you are already registered for the tournament.');
             } else {
-                participants.push(message.author.username);
+                participants.push(message.author.id);
                 message.channel.send(message.author.username + ', you are now registered for the tournament!');
             }
         } else if (args[0] === 'unregister') { 
             let check = false;
             for (let i = 0; i < participants.length; i++) {
-                if (participants[i] === message.author.username) {
+                if (participants[i] === message.author.id) {
                     check = true;
                     participants.splice(i, 1);
                 }
@@ -61,48 +71,52 @@ client.on('message', message => {
     if (command === 'user') {
         const taggedUser = message.mentions.users.first();
         if (args[0] === 'add') {
-            if (userInfo.has(message.author.username)) {
-                let filter = m => m.author.id === message.author.id;
-                let newName = args[1];
-                let info = userInfo.get(message.author.username);
-                message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
-                message.channel.awaitMessages(filter, {
-                    max: 1,
-                    time: 30000,
-                    errors: ['time']
+            containsUserInfo(message.author)
+            .then(resolve => {
+                if (resolve) {
+                    console.log('in here');
+                    let filter = m => m.author.id === message.author.id;
+                    let newName = args[1];
+                    let info = getUserInfo(message.author);
+                    message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
+                    message.channel.awaitMessages(filter, {
+                        max: 1,
+                        time: 30000,
+                        errors: ['time']
+                        })
+                        .then(message => {
+                        message = message.first();
+                        if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
+                            changeUserInfo(newName, message.author)
+                            .then(resolve => console.log('Success!'))
+                            .catch(failure => console.log('Failed. - ' + failure));
+                            message.channel.send('Summoner name changed successfully to ' + newName + '.');
+                        } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
+                            message.channel.send('Summoner name unchanged.');
+                        } else {
+                            message.channel.send('Invalid response - please redo the command and enter either Y or N.');
+                        }
+                        })
+                        .catch(collected => {
+                            message.channel.send('Command has timed out.');
+                        });
                     })
-                    .then(message => {
-                    message = message.first();
-                    if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
-                        changeUserInfo(newName, message.author.username)
-                        .then(resolve => console.log('Success!'))
-                        .catch(failure => console.log('Failed. - ' + failure));
-                        message.channel.send('Summoner name changed successfully to ' + newName + '.');
-                    } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
-                        message.channel.send('Summoner name unchanged.');
-                    } else {
-                        message.channel.send('Invalid response - please redo the command and enter either Y or N.');
-                    }
-                    })
-                    .catch(collected => {
-                        message.channel.send('Command has timed out.');
-                    });
-                })
-            } else {
-                changeUserInfo(args[1], message.author.username)
-                .then(resolve => console.log('Success!'))
-                .catch(failure => console.log('Failed. - ' + failure));
-                message.channel.send('Summoner name ' + args[1] + ' successfully added!');
-            }
+                } else {
+                    changeUserInfo(args[1], message.author)
+                    .then(resolve => console.log('Success!'))
+                    .catch(failure => console.log('Failed. - ' + failure));
+                    message.channel.send('Summoner name ' + args[1] + ' successfully added!');
+                }
+            })
         } else if (args[0] === 'change') {
-            changeUserInfo(args[1], message.author.username)
+            changeUserInfo(args[1], message.author)
             .then(resolve => console.log('Success!'))
             .catch(failure => console.log('Failed. - ' + failure));
             message.channel.send('Summoner name successfully changed to ' + args[1] + '.');
         } else if (args[0] === 'rank') {
             const taggedUser = message.mentions.users.first();
-            if (userInfo.has(taggedUser.username)) {
-                info = userInfo.get(taggedUser.username)
+            if (containsUserInfo(taggedUser.id)) {
+                info = getUserInfo(taggedUser.id).then();
                 if (info.rank != null) {
                     message.channel.send(taggedUser.username + `'s rank is ` + info.rank + '. (Summoner name: ' + info.summoner + ')');
                 } else {
@@ -112,15 +126,18 @@ client.on('message', message => {
                 message.channel.send(taggedUser.username + ' has not set a summoner yet.');
             }
         } else if (args[0] === 'lolchess') {
-            if (userInfo.has(taggedUser.username)) {
-                message.channel.send('https://lolchess.gg/profile/na/' + userInfo.get(taggedUser.username).summoner);
+            if (containsUserInfo(message.author)) {
+                getUserInfo(message.author)
+                .then(info => {console.log(info);
+                    message.channel.send('https://lolchess.gg/profile/na/' + info.summoner)
+                });
             } else {
                 message.channel.send('This user has not set a summoner name yet.');
             }
         } else if (args[0] === 'matches') {
             const taggedUser = message.mentions.users.first();
-            if (userInfo.has(taggedUser.username)) {
-                matchListTft(userInfo.get(taggedUser.username).summoner)
+            if (containsUserInfo(taggedUser.id)) {
+                matchListTft(getUserInfo(taggedUser.id).summoner)
                 .then((resolve) => {
                     console.log('Matches found!');
                     console.log(resolve);
@@ -140,7 +157,7 @@ client.on('message', message => {
 //Array for tournament participants
 let participants = [];
 
-let userInfo = new Map();
+//let userInfo = new Map();
 
 const api = new twisted.TftApi({rateLimitRetry: true,
     rateLimitRetryAttempts: 1,
@@ -173,7 +190,7 @@ async function userLeagueTft(summonerName) {
     return await api.League.get(id, twisted.Constants.Regions.AMERICA_NORTH);
 }
 
-async function changeUserInfo(summonerName, username) {
+async function changeUserInfo(summonerName, author) {
     await userLeagueTft(summonerName)
     .then((resolve) => {
         rank = resolve.response[0].tier + ' ' + resolve.response[0].rank;
@@ -183,9 +200,79 @@ async function changeUserInfo(summonerName, username) {
         rank = null;
     })
 
-    userInfo.set(username, {
+    let userInfo = {
+        username: author.username,
         summoner: summonerName,
         rank: rank,
         comps: null
-    });
+    }
+
+    const params = {
+        TableName: 'discord-tft-bot',
+        Item: {
+            id: author.id,
+            info: userInfo
+        }
+    }
+
+    docClient.put(params, (error) => {
+        if (!error) {
+            return true;
+        } else {
+            console.log('Error: ' + error);
+        }
+    })
+
+    // userInfo.set(username, {
+    //     summoner: summonerName,
+    //     rank: rank,
+    //     comps: null
+    // });
+}
+
+async function containsUserInfo(author) {
+    const params = {
+        TableName: 'discord-tft-bot',
+        Key: {
+            id: author.id
+        }
+    };
+
+    await docClient.get(params).promise()
+    .then(response => {
+        console.log('not empty ' + response.Item);
+        if (response.Item != undefined) {
+            console.log('returning not equals ' + response.Item);
+            return true;
+        } else {
+            console.log('returning equals ' + response.Item);
+            return false;
+        }
+    })
+    .catch(error => {
+        console.log('empty' + error);
+        return false;
+    })
+
+    // console.log(result);
+
+    // if (result != '{}') {
+    //     console.log('not empty');
+    //     return true;
+    // } else { 
+    //     console.log('empty');
+    //     return false;
+    // }
+}
+
+async function getUserInfo(author) {
+    const params = {
+        TableName: 'discord-tft-bot',
+        Key: {
+            id: author.id
+        }
+    };
+
+    let result = await docClient.get(params).promise();
+    return result.Item.info;
 }
