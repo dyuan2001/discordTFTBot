@@ -131,6 +131,17 @@ client.on('message', message => {
                     message.channel.send(taggedUser.username + ' has not set a summoner yet.');
                 }
             });
+        } else if (args[0] === 'refresh') {
+            const taggedUser = message.mentions.users.first();
+            containsUserInfo(taggedUser)
+            .then(resolve => {
+                if (resolve) {
+                    refreshUserInfo(taggedUser);
+                    message.channel.send(taggedUser.username + `'s user info has been refreshed successfully!`);
+                } else {
+                    message.channel.send(taggedUser.username + ` has not set a summoner yet.`);
+                }
+            })
         } else if (args[0] === 'lolchess') {
             containsUserInfo(message.author)
             .then(resolve => {
@@ -235,12 +246,47 @@ async function changeUserInfo(summonerName, author) {
             console.log('Error: ' + error);
         }
     })
+}
 
-    // userInfo.set(username, {
-    //     summoner: summonerName,
-    //     rank: rank,
-    //     comps: null
-    // });
+async function refreshUserInfo(author) {
+    //old info
+    let info = await getUserInfo(author.id);
+    
+    //new info (update as needed)
+    let rank = await userLeagueTft(summonerName);
+
+    let userInfo = {
+        username: author.username,
+        summoner: info.summoner,
+        rank: rank,
+        comps: null
+    }
+
+    let change = false;
+    for (const [key, value] of userInfo) {
+        if (value != info[key]) {
+            change = true;
+            break;
+        }
+    }
+
+    if (change) {
+        const params = {
+            TableName: 'discord-tft-bot',
+            Item: {
+                id: author.id,
+                info: userInfo
+            }
+        }
+    
+        docClient.put(params, (error) => {
+            if (!error) {
+                return true;
+            } else {
+                console.log('Error: ' + error);
+            }
+        })
+    }
 }
 
 async function containsUserInfo(author) {
@@ -268,16 +314,6 @@ async function containsUserInfo(author) {
     })
 
     return result;
-
-    // console.log(result);
-
-    // if (result != '{}') {
-    //     console.log('not empty');
-    //     return true;
-    // } else { 
-    //     console.log('empty');
-    //     return false;
-    // }
 }
 
 async function getUserInfo(author) {
