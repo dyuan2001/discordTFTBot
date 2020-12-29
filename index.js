@@ -160,7 +160,7 @@ client.on('message', message => {
             containsUserInfo(taggedUser)
             .then(resolve => {
                 if (resolve) {
-                    matchListTft(getUserInfo(taggedUser).summoner)
+                    matchListTft(getUserInfo(taggedUser).puuid)
                     .then((resolve) => {
                         console.log('Matches found!');
                         console.log(resolve);
@@ -194,28 +194,34 @@ const api = new twisted.TftApi({rateLimitRetry: true,
     }
   })
 
-async function matchListTft(summonerName) {
-    console.log('In async function.');
+async function findSummonerIds(summonerName) {
     const {
-      response: {
-        puuid
-      }
-    } = await api.Summoner.getByName(summonerName, twisted.Constants.Regions.AMERICA_NORTH);
-    console.log(puuid)
+        response: {
+          puuid,
+          id
+        }
+      } = await api.Summoner.getByName(summonerName, twisted.Constants.Regions.AMERICA_NORTH);
+    
+    return {
+            puuid: puuid,
+            encryptedId: id
+        };
+}
+
+async function matchListTft(puuid) {
     return await api.Match.list(puuid, twisted.Constants.TftRegions.AMERICAS, 20);
   }
 
-async function userLeagueTft(summonerName) {
-    const {
-        response: {
-            id
-        }
-    }  = await api.Summoner.getByName(summonerName, twisted.Constants.Regions.AMERICA_NORTH);
-    return await api.League.get(id, twisted.Constants.Regions.AMERICA_NORTH);
+async function userLeagueTft(encryptedId) {
+    return await api.League.get(encryptedId, twisted.Constants.Regions.AMERICA_NORTH);
 }
 
 async function changeUserInfo(summonerName, author) {
-    await userLeagueTft(summonerName)
+    arrIds = await findSummonerIds(summonerName);
+    puuid = arrIds.puuid;
+    encryptedId = arrIds.encryptedId;
+
+    await userLeagueTft(encryptedId)
     .then((resolve) => {
         rank = resolve.response[0].tier + ' ' + resolve.response[0].rank;
     })
@@ -227,6 +233,8 @@ async function changeUserInfo(summonerName, author) {
     let userInfo = {
         username: author.username,
         summoner: summonerName,
+        puuid: puuid,
+        encryptedId: encryptedId,
         rank: rank,
         comps: null
     }
@@ -250,25 +258,32 @@ async function changeUserInfo(summonerName, author) {
 
 async function refreshUserInfo(author) {
     //old info
-    let info = await getUserInfo(author.id);
+    let info = await getUserInfo(author);
     
     //new info (update as needed)
-    let rank = await userLeagueTft(summonerName);
+    let unprocessedRank = await userLeagueTft(info.encryptedId);
+    let rank = unprocessedRank.response[0].tier + ' ' + unprocessedRank.response[0].rank;
 
     let userInfo = {
         username: author.username,
         summoner: info.summoner,
+        puuid: info.puuid,
+        encryptedId: info.encryptedId,
         rank: rank,
         comps: null
     }
 
+    console.log(' ---------- user info', userInfo);
+    console.log(' ---------- info', info);
+
     let change = false;
-    for (const [key, value] of userInfo) {
-        if (value != info[key]) {
+    for (const property in userInfo) {
+        if (userInfo[property] != info[property]) {
             change = true;
             break;
         }
     }
+    console.log('change = ' + change);
 
     if (change) {
         const params = {

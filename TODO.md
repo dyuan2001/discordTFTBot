@@ -7,7 +7,8 @@
  - DataDragon implementation with match history
  - Match history analysis
  - Favorite compositions for each user
- - Database integration to save data through bot restarts
+ - Database integration to save data through bot restarts (DONE!)
+ - Refactor Riot API calls with database calls instead (DONE!)
 
 ## Readable Match History
  - Reads in units for the player
