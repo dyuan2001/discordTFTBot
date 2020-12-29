@@ -160,7 +160,8 @@ client.on('message', message => {
             containsUserInfo(taggedUser)
             .then(resolve => {
                 if (resolve) {
-                    matchListTft(getUserInfo(taggedUser).puuid)
+                    getUserInfo(taggedUser)
+                    .then(response => matchListTft(response.puuid))
                     .then((resolve) => {
                         console.log('Matches found!');
                         console.log(resolve);
