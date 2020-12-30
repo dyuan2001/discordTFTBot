@@ -19,7 +19,8 @@ module.exports = {
 
         await userLeagueTft(encryptedId)
         .then((resolve) => {
-            rank = resolve.response[0].tier + ' ' + resolve.response[0].rank;
+            leagueInfo = resolve.response[0];
+            rank = leagueInfo.tier + ' ' + leagueInfo.rank + ', ' + leagueInfo.leaguePoints + ' LP';
         })
         .catch((failure) => {
             console.log(failure);
@@ -58,7 +59,8 @@ module.exports = {
         
         //new info (update as needed)
         let unprocessedRank = await userLeagueTft(info.encryptedId);
-        let rank = unprocessedRank.response[0].tier + ' ' + unprocessedRank.response[0].rank;
+        let processedRank = unprocessedRank.response[0]
+        let rank = processedRank.tier + ' ' + processedRank.rank + ', ' + processedRank.leaguePoints + ' LP';
 
         let userInfo = {
             username: author.username,
