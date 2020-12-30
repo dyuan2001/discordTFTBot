@@ -16,7 +16,7 @@ module.exports = {
                 if (resolve) {
                     console.log('in here');
                     let filter = m => m.author.id === message.author.id;
-                    let newName = args[0];
+                    let newName = args.join(' ');
                     let info = await getUserInfo(message.author);
                     message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
                     message.channel.awaitMessages(filter, {
@@ -42,10 +42,10 @@ module.exports = {
                         });
                     })
                 } else {
-                    changeUserInfo(args[0], message.author)
+                    changeUserInfo(args.join(' '), message.author)
                     .then(resolve => console.log('Success!'))
                     .catch(failure => console.log('Failed. - ' + failure));
-                    message.channel.send('Summoner name ' + args[0] + ' successfully added!');
+                    message.channel.send('Summoner name ' + args.join(' ') + ' successfully added!');
                 }
             })
         }
@@ -55,7 +55,7 @@ module.exports = {
         name: 'change',
         description: 'Changes a summoner for a Discord user.',
         execute: function(message, args) {
-            changeUserInfo(args[0], message.author)
+            changeUserInfo(args.join(' '), message.author)
             .then(resolve => console.log('Success!'))
             .catch(failure => console.log('Failed. - ' + failure));
             message.channel.send('Summoner name successfully changed to ' + args[0] + '.');
@@ -112,7 +112,7 @@ module.exports = {
                     getUserInfo(message.author)
                     .then(info => {
                         console.log(info);
-                        message.channel.send('https://lolchess.gg/profile/na/' + info.summoner)
+                        message.channel.send('https://lolchess.gg/profile/na/' + info.summoner.replace(' ', ''));
                     });
                 } else {
                     message.channel.send('This user has not set a summoner name yet.');
