@@ -17,7 +17,7 @@ for (const file of commandFiles) {
             tempCollection.set(commandModule[command].name, commandModule[command]);
         }
     }
-	client.commands.set(commandModule.topic, tempCollection);
+	client.commands.set(commandModule.topic.toLowerCase(), tempCollection);
 }
 
 client.once('ready', () => {
@@ -31,7 +31,6 @@ client.on('message', message => {
 
     const args = message.content.slice(process.env.PREFIX.length).trim().split(/ +/);
     const commandTopic = args.shift().toLowerCase();
-    console.log(commandTopic);
 
     // Test if the topic exists
     if (!client.commands.has(commandTopic)) return;

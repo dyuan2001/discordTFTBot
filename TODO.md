@@ -1,11 +1,11 @@
 # Immediate
- - [] Readable match history
- - [] Move lolchess and matches to a separate command file
+ - [ ] Readable match history
+ - [ ] Move lolchess and matches to a separate command file
 
 # Future
- - [] DataDragon implementation with match history
- - [] Match history analysis
- - [] Favorite compositions for each user
+ - [ ] DataDragon implementation with match history
+ - [ ] Match history analysis
+ - [ ] Favorite compositions for each user
 
 ## Readable Match History
  - Reads in units for the player
