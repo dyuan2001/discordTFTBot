@@ -1,6 +1,9 @@
+const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
+const {addParticipant, removeParticipant, containsParticipant, getParticipants} = require('../src/tournamentConfig.js');
+
 module.exports = {
     topic: 'tournament',
-    
+
     info: {
         name: 'info',
         aliases: [''],
@@ -11,53 +14,66 @@ module.exports = {
         }
     }, 
     
-    participants: { //defunct as participants' array is not in the AWS database yet.
+    participants: {
         name: 'participants',
         description: 'Returns the participants currently registered for the tournament.',
-        execute: function (message, args) {
-            let result = 'Registered: ';
+        execute: async function (message, args) {
+            response = await getParticipants();
+            participants = response.participants;
+
+            let result = 'Registered: (' + response.count + ')\n';
             participants.forEach(participant => {
-                result = result + participant + ' ';
+                result = result + ' - ' + participant.info.username + '\n';
             });
             message.channel.send(result);
         }
     },
     
-    register: { //defunct as participants' array is not in the AWS database yet.
+    register: {
         name: 'register',
         description: 'Registers the user for the upcoming tournament.',
         execute: function (message, args) {
-            let check = false;
-            for (let i = 0; i < participants.length; i++) {
-                if (participants[i] === message.author.id) {
-                    check = true;
+            containsUserInfo(message.author)
+            .then(containsUser => {
+                if (containsUser) {
+                    return containsParticipant(message.author);
+                } else {
+                    message.channel.send('Please add a summoner before registering, ' + message.author.username + '.');
+                    throw new Error(message.author.username + ' had no summoner.');
                 }
-            }
-            if (check) {
-                message.channel.send(message.author.username + ', you are already registered for the tournament.');
-            } else {
-                participants.push(message.author.id);
-                message.channel.send(message.author.username + ', you are now registered for the tournament!');
-            }
+            })
+            .then(containsParticipant => {
+                if (containsParticipant) {
+                    message.channel.send('You have already registered for the tournament, ' + message.author.username + '!');
+                    throw new Error(message.author.username + ' was already registered for the tournament.');
+                } else {
+                    return addParticipant(message.author);
+                }
+            })
+            .then(() => message.channel.send('You have been successfully registered for the tournament, ' + message.author.username + '!'))
+            .catch(error => {
+                console.log('--------', error);
+            })
         }
     },
 
-    unregister: { //defunct as participants' array is not in the AWS database yet.
+    unregister: {
         name: 'unregister',
         description: 'Unregisters the user for the upcoming tournament.',
         execute: function (message, args) {
-            let check = false;
-            for (let i = 0; i < participants.length; i++) {
-                if (participants[i] === message.author.id) {
-                    check = true;
-                    participants.splice(i, 1);
+            containsParticipant(message.author)
+            .then(containsParticipant => {
+                if (containsParticipant) {
+                    return removeParticipant(message.author);
+                } else {
+                    message.channel.send('We could not find ' + message.author.username + ' in the list of tournament participants.');
+                    throw new Error(message.author.username + ' was never registered in the first place.');
                 }
-            }
-            if (check) {
-                message.channel.send('You have successfully been unregistered, ' + message.author.username + '!');
-            } else {
-                message.channel.send('You are not registered yet, ' + message.author.username + '.');
-            }
+            })
+            .then(() => message.channel.send('You have successfully been unregistered, ' + message.author.username + '.'))
+            .catch(error => {
+                console.log('--------', error);
+            })
         }
     },
 }
