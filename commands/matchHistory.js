@@ -3,6 +3,11 @@ const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require
 
 module.exports = {
     topic: 'mh',
+    topicAliases: [
+        'matchhistory',
+        'history',
+        'games',
+    ],
 
     lolchess: {
         name: 'lolchess',

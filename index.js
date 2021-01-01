@@ -17,6 +17,11 @@ for (const file of commandFiles) {
             tempCollection.set(commandModule[command].name, commandModule[command]);
         }
     }
+    if (commandModule.topicAliases) {
+        commandModule.topicAliases.forEach(alias => {
+            client.commands.set(alias.toLowerCase(), tempCollection);
+        });
+    }
 	client.commands.set(commandModule.topic.toLowerCase(), tempCollection);
 }
 
