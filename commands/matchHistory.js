@@ -1,3 +1,5 @@
+const Discord = require('discord.js');
+
 const {findSummonerIds, matchListTft, userLeagueTft} = require('../src/riotApi.js');
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
 
@@ -29,7 +31,7 @@ module.exports = {
         }
     },
 
-    matches: {
+    list: {
         name: 'list',
         aliases: ['', 'games', 'matches'],
         description: 'Displays a user\'s recent match history.',
@@ -45,12 +47,13 @@ module.exports = {
                 }
             })
             .then(userInfo => {
-                return matchListTft(userInfo.puuid)
-            })
-            .then((matches) => {
-                console.log('Matches found!');
-                console.log(matches);
-                message.channel.send(matches.response.join('\n')); 
+                let embed = matchListEmbed;
+                embed.title = `${userInfo.username}'s Match History`;
+                
+                userInfo.matchesMap.forEach((matchInfo) => {
+                    embed.fields[0].value += `${matchInfo.game_datetime} - ${matchInfo.placement} - ${matchInfo.composition} - ${matchInfo.carry}\n`;
+                });                
+                message.channel.send({embed: embed}); 
             })
             .catch((error) => {
                 console.log('---------', error);
@@ -58,3 +61,33 @@ module.exports = {
         }
     },
 }
+
+let matchListEmbed = {
+	color: 0x0099ff,
+	// title: 'Some title', Set title in method
+	url: 'https://discord.js.org',
+	author: {
+		name: 'TFT Announcements',
+		icon_url: 'https://static.wikia.nocookie.net/leagueoflegends/images/6/67/Teamfight_Tactics_icon.png/revision/latest?cb=20191018215638',
+		// url: 'https://discord.js.org',
+	},
+	// description: 'Some description here',
+	// thumbnail: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// },
+	fields: [
+		{
+			name: '',
+            value: '',
+            inline: false,
+		},
+	],
+	// image: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// },
+	timestamp: new Date(),
+	footer: {
+		text: 'React below to browse more match history.',
+		icon_url: 'https://cdn.bleacherreport.net/images/team_logos/328x328/georgia_tech_football.png',
+	},
+};

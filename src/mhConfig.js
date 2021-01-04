@@ -13,6 +13,8 @@ const docClient = new AWS.DynamoDB.DocumentClient();
 const {findSummonerIds, matchListTft, userLeagueTft, matchDetailsTft} = require('./riotApi.js');
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('./userConfig.js');
 
+const throttle = 10;
+
 module.exports = {
     addFullMatchDetails: async function (matchId) {
         matchInDatabase = await module.exports.containsFullMatchDetails(matchId);
@@ -25,12 +27,12 @@ module.exports = {
         fullMatchInfo = matchDetailsResponse.response.info;
 
         const game_datetime = fullMatchInfo.game_datetime;
-        var date = new Date(game_datetime * 1000);
+        let date = new Date(game_datetime * 1000);
         // Get time in EST
-        var invdate = new Date(date.toLocaleString('en-US', {
+        let invdate = new Date(date.toLocaleString('en-US', {
             timeZone: 'America/New_York',
         }));
-        var diff = date.getTime() - invdate.getTime();
+        let diff = date.getTime() - invdate.getTime();
 
         const game_date_obj = new Date(date.getTime() - diff);
         const month = game_date_obj.getUTCMonth() + 1;
@@ -141,7 +143,7 @@ module.exports = {
         // If no match history at all
         if (!userMatchHistory || userMatchHistory == {}) {
             matchesMap = new Map();
-            for (let i = 0; i < 19; i++) {
+            for (let i = 0; i < throttle; i++) {
                 let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
                 if (matchDetails.tft_set_number < 4) {
                     break;
@@ -155,7 +157,7 @@ module.exports = {
                 matchesMap.set(matchId, individualMatchInfo);
             }
             // Keeps track of newest & oldest matches for match updating
-            if (upToDateMatchHistory.length < 19) {
+            if (upToDateMatchHistory.length < throttle) {
                 let triggerMatches = {
                     newest: upToDateMatchHistory[0],
                     oldest: upToDateMatchHistory[upToDateMatchHistory.length - 1],
@@ -163,7 +165,7 @@ module.exports = {
             }
             let triggerMatches = {
                 newest: upToDateMatchHistory[0],
-                oldest: upToDateMatchHistory[18],
+                oldest: upToDateMatchHistory[throttle - 1],
             }
             return {
                 userMatchHistory: matchesMap,
@@ -176,7 +178,7 @@ module.exports = {
             const oldestIndex = upToDateMatchHistory.find(userTriggerMatches.oldest);
             try {
                 let oldest = userTriggerMatches.oldest;
-                for (let i = 1; i <= 19; i++) {
+                for (let i = 1; i <= throttle; i++) {
                     let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i + oldestIndex]);
                     if (matchDetails.tft_set_number < 4) {
                         break;
@@ -206,7 +208,7 @@ module.exports = {
         } else { // User played new matches
             const newestIndex = upToDateMatchHistory.find(userTriggerMatches.newest);
             for (let i = 0; i < newestIndex; i++) {
-                if (i % 19 == 0) {
+                if (i % throttle == 0) {
                     await sleep(1000);
                 }
                 let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
