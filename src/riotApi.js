@@ -29,7 +29,7 @@ module.exports = {
     },
 
     matchListTft: async function (puuid) {
-        return await api.Match.list(puuid, twisted.Constants.TftRegions.AMERICAS, 20);
+        return await api.Match.list(puuid, twisted.Constants.TftRegions.AMERICAS, 1000);
     },
 
     matchDetailsTft: async function (matchId) {

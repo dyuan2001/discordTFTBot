@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const AWS = require('aws-sdk');
 const { IdentityStore } = require('aws-sdk');
+
 AWS.config.update({
     region: process.env.AWS_DEFAULT_REGION,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -10,9 +11,16 @@ AWS.config.update({
 const docClient = new AWS.DynamoDB.DocumentClient();
 
 const {findSummonerIds, matchListTft, userLeagueTft, matchDetailsTft} = require('./riotApi.js');
+const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('./userConfig.js');
 
 module.exports = {
     addFullMatchDetails: async function (matchId) {
+        matchInDatabase = await module.exports.containsFullMatchDetails(matchId);
+
+        if (matchInDatabase) {
+            return module.exports.getFullMatchDetails(matchId);
+        }
+
         matchDetailsResponse = await matchDetailsTft(matchId);
         fullMatchInfo = matchDetailsResponse.response.info;
 
@@ -110,15 +118,145 @@ module.exports = {
 
         const error = await docClient.put(params).promise();
         if (!error) {
-            return true;
+            return info;
         } else {
-            console.log('Error adding detailed match history:', error);
-            return false;
+            throw new Error('Error adding detailed match history:', error);
         }
     },
 
     updateIndividualMatchHistory: async function (author) {
+        userInfo = await getUserInfo(author);
+        upToDateMatchHistory = await matchListTft(userInfo.puuid);
+        userTriggerMatches = userInfo.triggerMatches;
+        userMatchHistory = userInfo.matches;
 
+        if (upToDateMatchHistory.length == 0) {
+            console.log('User has not played any matches.');
+            return {
+                userMatchHistory: null,
+                triggerMatches: null,
+            };
+        }
+
+        // If no match history at all
+        if (!userMatchHistory || userMatchHistory == {}) {
+            matchesMap = new Map();
+            for (let i = 0; i < 19; i++) {
+                let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
+                if (matchDetails.tft_set_number < 4) {
+                    break;
+                }
+                const individualMatchInfo = { // Insert carry function here for carry
+                    game_datetime: matchDetails.game_datetime,
+                    placement: matchDetails.playerMap.get(userInfo.puuid).placement,
+                    composition: '',
+                    carry: '',
+                };
+                matchesMap.set(matchId, individualMatchInfo);
+            }
+            // Keeps track of newest & oldest matches for match updating
+            if (upToDateMatchHistory.length < 19) {
+                let triggerMatches = {
+                    newest: upToDateMatchHistory[0],
+                    oldest: upToDateMatchHistory[upToDateMatchHistory.length - 1],
+                }
+            }
+            let triggerMatches = {
+                newest: upToDateMatchHistory[0],
+                oldest: upToDateMatchHistory[18],
+            }
+            return {
+                userMatchHistory: matchesMap,
+                triggerMatches,
+            };
+        }
+
+        // If already up to date = update older matches
+        if (upToDateMatchHistory[0] == userTriggerMatches.newest) {
+            const oldestIndex = upToDateMatchHistory.find(userTriggerMatches.oldest);
+            try {
+                let oldest = userTriggerMatches.oldest;
+                for (let i = 1; i <= 19; i++) {
+                    let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i + oldestIndex]);
+                    if (matchDetails.tft_set_number < 4) {
+                        break;
+                    }
+                    const individualMatchInfo = { // Insert carry function here for carry
+                        game_datetime: matchDetails.game_datetime,
+                        placement: matchDetails.playerMap.get(userInfo.puuid).placement,
+                        composition: '',
+                        carry: '',
+                    };
+                    userMatchHistory.set(matchId, individualMatchInfo);
+                    oldest = i + oldestIndex;
+                }
+            } catch (error) {
+                console.log('Error updating match history: ', error);
+            } finally {
+                let triggerMatches = {
+                    newest: userTriggerMatches.newest,
+                    oldest: oldest,
+                }
+
+                return {
+                    userMatchHistory,
+                    triggerMatches,
+                };
+            }
+        } else { // User played new matches
+            const newestIndex = upToDateMatchHistory.find(userTriggerMatches.newest);
+            for (let i = 0; i < newestIndex; i++) {
+                if (i % 19 == 0) {
+                    await sleep(1000);
+                }
+                let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
+                if (matchDetails.tft_set_number < 4) {
+                    break;
+                }
+                const individualMatchInfo = { // Insert carry function here for carry
+                    game_datetime: matchDetails.game_datetime,
+                    placement: matchDetails.playerMap.get(userInfo.puuid).placement,
+                    composition: '',
+                    carry: '',
+                };
+                userMatchHistory.set(matchId, individualMatchInfo);
+            }
+            let triggerMatches = {
+                newest: upToDateMatchHistory[0],
+                oldest: userTriggerMatches.oldest,
+            }
+            return {
+                userMatchHistory: matchesMap,
+                triggerMatches,
+            };
+        }
     },
 
+    containsFullMatchDetails: async function (matchId) {
+        const params = {
+            TableName: 'discord-bot-mh',
+            Key: {
+                id: matchId,
+            }
+        };
+
+        let result = await docClient.get(params).promise();
+        return result.Item != undefined;
+    },
+
+    getFullMatchDetails: async function (matchId) {
+        const params = {
+            TableName: 'discord-tft-mh',
+            Key: {
+                id: matchId,
+            }
+        };
+
+        let result = await docClient.get(params).promise();
+        return result.Item.info;
+    },
+}
+
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
