@@ -32,7 +32,11 @@ module.exports = {
         return await api.Match.list(puuid, twisted.Constants.TftRegions.AMERICAS, 20);
     },
 
+    matchDetailsTft: async function (matchId) {
+        return await api.Match.get(matchId, twisted.Constants.TftRegions.AMERICAS);
+    },
+
     userLeagueTft: async function (encryptedId) {
         return await api.League.get(encryptedId, twisted.Constants.Regions.AMERICA_NORTH);
-    }
+    },
 }

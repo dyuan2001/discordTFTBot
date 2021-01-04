@@ -40,7 +40,7 @@ module.exports = {
                     return getUserInfo(taggedUser);
                 } else {
                     message.channel.send('This user has not set a summoner name yet.');
-                    throw new Error(taggedUser.username + ' has not set a summoner yet.');
+                    throw new Error(`${taggedUser.username} has not set a summoner yet.`);
                 }
             })
             .then(userInfo => {

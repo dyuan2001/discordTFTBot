@@ -6,6 +6,7 @@
  - [ ] DataDragon implementation with match history
  - [ ] Match history analysis
  - [ ] Favorite compositions for each user
+ - [ ] Companion website for specific match history & more!
 
 ## Readable Match History
  - Reads in units for the player
