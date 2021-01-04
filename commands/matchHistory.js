@@ -7,6 +7,7 @@ module.exports = {
         'matchhistory',
         'history',
         'games',
+        'match_history',
     ],
 
     lolchess: {
@@ -29,8 +30,8 @@ module.exports = {
     },
 
     matches: {
-        name: 'matches',
-        aliases: ['matchhistory', 'match_history', 'history'],
+        name: 'list',
+        aliases: ['', 'games', 'matches'],
         description: 'Displays a user\'s recent match history.',
         execute: function (message, args) {
             const taggedUser = message.mentions.users.first();

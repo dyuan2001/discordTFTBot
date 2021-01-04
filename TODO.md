@@ -11,7 +11,7 @@
 ## Readable Match History
  - Reads in units for the player
  - Finds carry (character with most items, tie TBD)
- - Displays in format {Date - Placement - Carry (Item/Item/Item)}
+ - Displays in format {Date - Placement - Composition - Carry (Item/Item/Item)}
  - Saves match history in database
   - Refresh finds new games to add to database
   - Adds new game IDs until latest game ID is found
