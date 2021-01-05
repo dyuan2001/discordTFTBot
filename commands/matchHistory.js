@@ -49,6 +49,7 @@ module.exports = {
             .then(userInfo => {
                 let embed = matchListEmbed;
                 embed.title = `${userInfo.username}'s Match History`;
+                embed.timestamp = new Date();
                 const matchesJSMap = new Map(Object.entries(userInfo.matchesMap));
 
                 matchesJSMap.forEach((matchInfo) => {
@@ -86,8 +87,8 @@ let matchListEmbed = {
 	],
 	// image: {
 	// 	url: 'https://i.imgur.com/wSTFkRM.png',
-	// },
-	timestamp: new Date(),
+	// // },
+	// timestamp: new Date(),
 	footer: {
 		text: 'React below to browse more match history.',
 		icon_url: 'https://cdn.bleacherreport.net/images/team_logos/328x328/georgia_tech_football.png',

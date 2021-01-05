@@ -24,10 +24,17 @@ module.exports = {
                         .then(message => {
                         message = message.first();
                         if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
-                            changeUserInfo(newName, message.author)
-                            .then(resolve => console.log('Success!'))
+                            message.react('🔨')
+                            .then(response => {
+                                return changeUserInfo(newName, message.author);
+                            })
+                            .then(async function(resolve) {
+                                console.log('Success!')
+                                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+                                await message.react('✅');
+                                message.channel.send('Summoner name changed successfully to ' + newName + '.');
+                            })
                             .catch(failure => console.log('Failed changing user info. - ' + failure));
-                            message.channel.send('Summoner name changed successfully to ' + newName + '.');
                         } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
                             message.channel.send('Summoner name unchanged.');
                         } else {
@@ -39,10 +46,17 @@ module.exports = {
                         });
                     })
                 } else {
-                    changeUserInfo(args.join(' '), message.author)
-                    .then(resolve => console.log('Success!'))
+                    message.react('🔨')
+                    .then(response => {
+                        return changeUserInfo(args.join('✅'), message.author);
+                    })
+                    .then(async function(resolve) {
+                        console.log('Success!')
+                        await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+                        await message.react('✔️');
+                        message.channel.send('Summoner name ' + args.join(' ') + ' successfully added!');
+                    })
                     .catch(failure => console.log('Failed. - ' + failure));
-                    message.channel.send('Summoner name ' + args.join(' ') + ' successfully added!');
                 }
             })
         }
@@ -52,10 +66,17 @@ module.exports = {
         name: 'change',
         description: 'Changes a summoner for a Discord user.',
         execute: function(message, args) {
-            changeUserInfo(args.join(' '), message.author)
-            .then(resolve => console.log('Success!'))
+            message.react('🔨')
+            .then(response => {
+                return changeUserInfo(args.join(' '), message.author);
+            })
+            .then(async function() {
+                console.log('Success!');
+                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+                await message.react('✅');
+                message.channel.send('Summoner name successfully changed to ' + args[0] + '.');
+            })
             .catch(failure => console.log('Failed. - ' + failure));
-            message.channel.send('Summoner name successfully changed to ' + args[0] + '.');
         }
     },
 
@@ -90,11 +111,18 @@ module.exports = {
             containsUserInfo(taggedUser)
             .then(resolve => {
                 if (resolve) {
-                    refreshUserInfo(taggedUser);
-                    message.channel.send(taggedUser.username + `'s user info has been refreshed successfully!`);
+                    return message.react('🔨');
                 } else {
                     message.channel.send(taggedUser.username + ` has not set a summoner yet.`);
                 }
+            })
+            .then(() => {
+                return refreshUserInfo(taggedUser);
+            })
+            .then(async function() {
+                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+                await message.react('✅');
+                message.channel.send(taggedUser.username + `'s user info has been refreshed successfully!`);
             })
         }
     },
