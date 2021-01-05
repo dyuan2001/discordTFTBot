@@ -26,7 +26,7 @@ module.exports = {
                         if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
                             changeUserInfo(newName, message.author)
                             .then(resolve => console.log('Success!'))
-                            .catch(failure => console.log('Failed. - ' + failure));
+                            .catch(failure => console.log('Failed changing user info. - ' + failure));
                             message.channel.send('Summoner name changed successfully to ' + newName + '.');
                         } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
                             message.channel.send('Summoner name unchanged.');

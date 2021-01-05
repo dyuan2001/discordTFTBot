@@ -9,58 +9,61 @@ AWS.config.update({
 })
 const docClient = new AWS.DynamoDB.DocumentClient();
 
-const {findSummonerIds, matchListTft, userLeagueTft} = require('./riotApi.js');
+const {findSummonerIds, userLeagueTft} = require('./riotApi.js');
+const {updateIndividualMatchHistory} = require('./mhConfig.js');
 
 module.exports = {
     changeUserInfo: async function (summonerName, author) {
-        arrIds = await findSummonerIds(summonerName);
-        puuid = arrIds.puuid;
-        encryptedId = arrIds.encryptedId;
-
-        await userLeagueTft(encryptedId)
-        .then((resolve) => {
-            leagueInfo = resolve.response[0];
-            rank = leagueInfo.tier + ' ' + leagueInfo.rank + ', ' + leagueInfo.leaguePoints + ' LP';
-        })
-        .catch((failure) => {
-            console.log(failure);
-            rank = null;
-        })
+        let arrIds = await findSummonerIds(summonerName);
+        let puuid = arrIds.puuid;
+        let encryptedId = arrIds.encryptedId;
 
         let userInfo = {
             username: author.username,
             summoner: summonerName,
             puuid: puuid,
             encryptedId: encryptedId,
-            rank: rank,
-            comps: null
         }
 
         const params = {
             TableName: 'discord-tft-bot',
             Item: {
                 id: author.id,
-                info: userInfo
+                info: userInfo,
             }
         }
 
-        docClient.put(params, (error) => {
-            if (!error) {
-                return true;
-            } else {
-                console.log('Error: ' + error);
-            }
+        console.log(params);
+
+        await docClient.put(params).promise()
+        .then(async function (response) {
+            return await module.exports.refreshUserInfo(author);
         })
+        .catch(error => {
+            console.log('Error changing user info: ', error);
+            throw new Error('Error changing user info.');
+        });
     },
 
     refreshUserInfo: async function (author) {
+        console.log('refreshing user info!');
         //old info
         let info = await module.exports.getUserInfo(author);
-        
+        console.log(info);
         //new info (update as needed)
         let unprocessedRank = await userLeagueTft(info.encryptedId);
         let processedRank = unprocessedRank.response[0]
-        let rank = processedRank.tier + ' ' + processedRank.rank + ', ' + processedRank.leaguePoints + ' LP';
+        let rank;
+        if (processedRank == undefined) {
+            rank = null;
+        } else {
+            rank = processedRank.tier + ' ' + processedRank.rank + ', ' + processedRank.leaguePoints + ' LP';
+        }
+
+        // Match history
+        let matchHistoryTuple = await updateIndividualMatchHistory(info);
+        let matchesMap = matchHistoryTuple.userMatchHistory;
+        let triggerMatches = matchHistoryTuple.triggerMatches;
 
         let userInfo = {
             username: author.username,
@@ -68,7 +71,9 @@ module.exports = {
             puuid: info.puuid,
             encryptedId: info.encryptedId,
             rank: rank,
-            comps: null
+            comps: null,
+            matchesMap: Object.fromEntries(matchesMap),
+            triggerMatches,
         }
 
         console.log(' ---------- user info', userInfo);
@@ -76,7 +81,7 @@ module.exports = {
 
         let change = false;
         for (const property in userInfo) {
-            if (userInfo[property] != info[property]) {
+            if (info[property] == undefined || userInfo[property] != info[property]) {
                 change = true;
                 break;
             }
@@ -88,7 +93,7 @@ module.exports = {
                 TableName: 'discord-tft-bot',
                 Item: {
                     id: author.id,
-                    info: userInfo
+                    info: userInfo,
                 }
             }
         
@@ -96,7 +101,7 @@ module.exports = {
                 if (!error) {
                     return true;
                 } else {
-                    console.log('Error: ' + error);
+                    console.log('Error refreshing user info: ', error);
                 }
             })
         }
@@ -133,10 +138,9 @@ module.exports = {
         const params = {
             TableName: 'discord-tft-bot',
             Key: {
-                id: author.id
+                id: author.id,
             }
         };
-
         let result = await docClient.get(params).promise();
         return result.Item.info;
     },

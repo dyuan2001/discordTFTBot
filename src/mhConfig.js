@@ -2,7 +2,6 @@ require('dotenv').config();
 
 const AWS = require('aws-sdk');
 const { IdentityStore } = require('aws-sdk');
-
 AWS.config.update({
     region: process.env.AWS_DEFAULT_REGION,
     accessKeyId: process.env.AWS_ACCESS_KEY_ID,
@@ -11,7 +10,6 @@ AWS.config.update({
 const docClient = new AWS.DynamoDB.DocumentClient();
 
 const {findSummonerIds, matchListTft, userLeagueTft, matchDetailsTft} = require('./riotApi.js');
-const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('./userConfig.js');
 
 const throttle = 10;
 
@@ -107,7 +105,7 @@ module.exports = {
             game_patch,
             game_type,
             tft_set_number,
-            participants: playerMap,
+            participants: Object.fromEntries(playerMap),
         }
 
         const params = {
@@ -118,17 +116,21 @@ module.exports = {
             }
         }
 
-        const error = await docClient.put(params).promise();
-        if (!error) {
-            return info;
-        } else {
-            throw new Error('Error adding detailed match history:', error);
-        }
+        console.log(params);
+
+        await docClient.put(params).promise()
+        .catch(error => {
+            console.log('Error changing user info: ', error);
+            throw new Error('Error changing user info.');
+        });
+
+        return info;
     },
 
-    updateIndividualMatchHistory: async function (author) {
-        userInfo = await getUserInfo(author);
-        upToDateMatchHistory = await matchListTft(userInfo.puuid);
+    updateIndividualMatchHistory: async function (userInfo) {
+        console.log('updating indiv match history!');
+        unprocessedUpToDateMatchHistory = await matchListTft(userInfo.puuid);
+        upToDateMatchHistory = unprocessedUpToDateMatchHistory.response;
         userTriggerMatches = userInfo.triggerMatches;
         userMatchHistory = userInfo.matches;
 
@@ -140,32 +142,38 @@ module.exports = {
             };
         }
 
+        console.log(userTriggerMatches);
+        console.log(userMatchHistory);
+
         // If no match history at all
         if (!userMatchHistory || userMatchHistory == {}) {
             matchesMap = new Map();
             for (let i = 0; i < throttle; i++) {
+                console.log('no match history update');
                 let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
                 if (matchDetails.tft_set_number < 4) {
                     break;
                 }
                 const individualMatchInfo = { // Insert carry function here for carry
                     game_datetime: matchDetails.game_datetime,
-                    placement: matchDetails.playerMap.get(userInfo.puuid).placement,
+                    placement: matchDetails.participants[userInfo.puuid].placement,
                     composition: '',
                     carry: '',
                 };
-                matchesMap.set(matchId, individualMatchInfo);
+                matchesMap.set(upToDateMatchHistory[i], individualMatchInfo);
             }
             // Keeps track of newest & oldest matches for match updating
+            let triggerMatches;
             if (upToDateMatchHistory.length < throttle) {
-                let triggerMatches = {
+                triggerMatches = {
                     newest: upToDateMatchHistory[0],
                     oldest: upToDateMatchHistory[upToDateMatchHistory.length - 1],
                 }
-            }
-            let triggerMatches = {
-                newest: upToDateMatchHistory[0],
-                oldest: upToDateMatchHistory[throttle - 1],
+            } else {
+                triggerMatches = {
+                    newest: upToDateMatchHistory[0],
+                    oldest: upToDateMatchHistory[throttle - 1],
+                }
             }
             return {
                 userMatchHistory: matchesMap,
@@ -176,8 +184,8 @@ module.exports = {
         // If already up to date = update older matches
         if (upToDateMatchHistory[0] == userTriggerMatches.newest) {
             const oldestIndex = upToDateMatchHistory.find(userTriggerMatches.oldest);
+            let oldest = userTriggerMatches.oldest;
             try {
-                let oldest = userTriggerMatches.oldest;
                 for (let i = 1; i <= throttle; i++) {
                     let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i + oldestIndex]);
                     if (matchDetails.tft_set_number < 4) {
@@ -185,12 +193,12 @@ module.exports = {
                     }
                     const individualMatchInfo = { // Insert carry function here for carry
                         game_datetime: matchDetails.game_datetime,
-                        placement: matchDetails.playerMap.get(userInfo.puuid).placement,
+                        placement: matchDetails.participants[userInfo.puuid].placement,
                         composition: '',
                         carry: '',
                     };
                     userMatchHistory.set(matchId, individualMatchInfo);
-                    oldest = i + oldestIndex;
+                    oldest = upToDateMatchHistory[i + oldestIndex];
                 }
             } catch (error) {
                 console.log('Error updating match history: ', error);
@@ -217,7 +225,7 @@ module.exports = {
                 }
                 const individualMatchInfo = { // Insert carry function here for carry
                     game_datetime: matchDetails.game_datetime,
-                    placement: matchDetails.playerMap.get(userInfo.puuid).placement,
+                    placement: matchDetails.participants[userInfo.puuid].placement,
                     composition: '',
                     carry: '',
                 };
@@ -241,14 +249,14 @@ module.exports = {
                 id: matchId,
             }
         };
-
+        console.log(params);
         let result = await docClient.get(params).promise();
         return result.Item != undefined;
     },
 
     getFullMatchDetails: async function (matchId) {
         const params = {
-            TableName: 'discord-tft-mh',
+            TableName: 'discord-bot-mh',
             Key: {
                 id: matchId,
             }

@@ -49,10 +49,12 @@ module.exports = {
             .then(userInfo => {
                 let embed = matchListEmbed;
                 embed.title = `${userInfo.username}'s Match History`;
-                
-                userInfo.matchesMap.forEach((matchInfo) => {
+                const matchesJSMap = new Map(Object.entries(userInfo.matchesMap));
+
+                matchesJSMap.forEach((matchInfo) => {
                     embed.fields[0].value += `${matchInfo.game_datetime} - ${matchInfo.placement} - ${matchInfo.composition} - ${matchInfo.carry}\n`;
-                });                
+                });             
+
                 message.channel.send({embed: embed}); 
             })
             .catch((error) => {
@@ -65,7 +67,7 @@ module.exports = {
 let matchListEmbed = {
 	color: 0x0099ff,
 	// title: 'Some title', Set title in method
-	url: 'https://discord.js.org',
+	// url: 'https://discord.js.org',
 	author: {
 		name: 'TFT Announcements',
 		icon_url: 'https://static.wikia.nocookie.net/leagueoflegends/images/6/67/Teamfight_Tactics_icon.png/revision/latest?cb=20191018215638',
@@ -77,7 +79,7 @@ let matchListEmbed = {
 	// },
 	fields: [
 		{
-			name: '',
+			name: 'Most recent matches:',
             value: '',
             inline: false,
 		},
