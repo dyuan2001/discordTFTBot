@@ -1,4 +1,5 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
+const {workingReaction, successReaction, errorReaction} = require('../src/reaction.js');
 
 module.exports = {
     topic: 'user',
@@ -12,51 +13,57 @@ module.exports = {
                 console.log('hello ' + resolve);
                 if (resolve) {
                     console.log('in here');
-                    let filter = m => m.author.id === message.author.id;
                     let newName = args.join(' ');
                     let info = await getUserInfo(message.author);
-                    message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
-                    message.channel.awaitMessages(filter, {
-                        max: 1,
-                        time: 30000,
-                        errors: ['time']
-                        })
-                        .then(message => {
-                        message = message.first();
-                        if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
-                            message.react('🔨')
-                            .then(response => {
-                                return changeUserInfo(newName, message.author);
+                    if (info.summoner == newName) {
+                        message.channel.send(`Your summoner name is already ${newName}, ${message.author.username}!`);
+                    } else {
+                        message.channel.send('You already have an associated summoner ' + info.summoner + '. Would you like to change it to ' + newName + '? (Y/N)').then(() => {
+                        let filter = m => m.author.id === message.author.id;
+                        message.channel.awaitMessages(filter, {
+                            max: 1,
+                            time: 30000,
+                            errors: ['time']
                             })
-                            .then(async function(resolve) {
-                                console.log('Success!')
-                                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
-                                await message.react('✅');
-                                message.channel.send('Summoner name changed successfully to ' + newName + '.');
+                            .then(message => {
+                            message = message.first();
+                            if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
+                                message.react('🔨')
+                                .then(response => {
+                                    return changeUserInfo(newName, message.author);
+                                })
+                                .then(async function(resolve) {
+                                    console.log('Success!')
+                                    await successReaction(message);
+                                    message.channel.send('Summoner name changed successfully to ' + newName + '.');
+                                })
+                                .catch(failure => console.log('Failed changing user info. - ' + failure));
+                            } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
+                                message.channel.send('Summoner name unchanged.');
+                            } else {
+                                message.channel.send('Invalid response - please redo the command and enter either Y or N.');
+                            }
                             })
-                            .catch(failure => console.log('Failed changing user info. - ' + failure));
-                        } else if (message.content.toUpperCase() == 'NO' || message.content.toUpperCase() == 'N') {
-                            message.channel.send('Summoner name unchanged.');
-                        } else {
-                            message.channel.send('Invalid response - please redo the command and enter either Y or N.');
-                        }
+                            .catch(async function (collected) {
+                                await errorReaction(message);
+                                message.channel.send('Command has timed out.');
+                            });
                         })
-                        .catch(collected => {
-                            message.channel.send('Command has timed out.');
-                        });
-                    })
+                    }
                 } else {
-                    message.react('🔨')
+                    workingReaction(message)
                     .then(response => {
                         return changeUserInfo(args.join('✅'), message.author);
                     })
                     .then(async function(resolve) {
                         console.log('Success!')
-                        await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
-                        await message.react('✔️');
+                        await successReaction(message);
                         message.channel.send('Summoner name ' + args.join(' ') + ' successfully added!');
                     })
-                    .catch(failure => console.log('Failed. - ' + failure));
+                    .catch(async function (failure) {
+                        await errorReaction(message);
+                        console.log('Failed. - ' + failure);
+                    });
                 }
             })
         }
@@ -66,17 +73,19 @@ module.exports = {
         name: 'change',
         description: 'Changes a summoner for a Discord user.',
         execute: function(message, args) {
-            message.react('🔨')
+            workingReaction(message)
             .then(response => {
                 return changeUserInfo(args.join(' '), message.author);
             })
             .then(async function() {
                 console.log('Success!');
-                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
-                await message.react('✅');
+                await successReaction(message);
                 message.channel.send('Summoner name successfully changed to ' + args[0] + '.');
             })
-            .catch(failure => console.log('Failed. - ' + failure));
+            .catch(async failure => {
+                await errorReaction(message);
+                console.log('Failed. - ' + failure)
+            });
         }
     },
 
@@ -85,21 +94,31 @@ module.exports = {
         description: 'Displays a Discord user\'s summoner rank.',
         execute: function (message, args) {
             const taggedUser = message.mentions.users.first();
-            containsUserInfo(taggedUser)
+            workingReaction(message)
+            .then(() => {
+                return containsUserInfo(taggedUser);
+            })
             .then(resolve => {
                 if (resolve) {
-                    getUserInfo(taggedUser)
-                    .then(info => {
-                        if (info.rank != null) {
-                            message.channel.send(taggedUser.username + `'s rank is ` + info.rank + '. (Summoner name: ' + info.summoner + ')');
-                        } else {
-                            message.channel.send(taggedUser.username + ' has an error with their rank.');
-                        }
-                    })
+                    return getUserInfo(taggedUser);
                 } else {
                     message.channel.send(taggedUser.username + ' has not set a summoner yet.');
+                    throw new Error('Tagged user has not set a summoner yet.');
                 }
-            });
+            })
+            .then(async info => {
+                if (info.rank != null) {
+                    await successReaction(message);
+                    message.channel.send(taggedUser.username + `'s rank is ` + info.rank + '. (Summoner name: ' + info.summoner + ')');
+                } else {
+                    message.channel.send(taggedUser.username + ' has an error with their rank.');
+                    throw new Error('Tagged user has an error with their rank.');
+                }
+            })
+            .catch(async error => {
+                await errorReaction(message);
+                console.log('Error displaying ranked: ', error);
+            })
         }
     },
 
@@ -123,6 +142,12 @@ module.exports = {
                 await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
                 await message.react('✅');
                 message.channel.send(taggedUser.username + `'s user info has been refreshed successfully!`);
+            })
+            .catch(async error => {
+                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
+                await message.react('❌');
+                console.log('Error refreshing user:', error);
+                message.channel.send(`There was an error refreshing ${taggedUser.username}'s.`);
             })
         }
     },
