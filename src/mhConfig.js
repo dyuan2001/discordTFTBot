@@ -25,7 +25,7 @@ module.exports = {
         fullMatchInfo = matchDetailsResponse.response.info;
 
         const game_datetime = fullMatchInfo.game_datetime;
-        let date = new Date(game_datetime * 1000);
+        let date = new Date(game_datetime);
         // Get time in EST
         const game_date_obj = new Date(date.getTime() - 5 * 60 * 60 * 1000);
         const month = game_date_obj.getUTCMonth() + 1;
