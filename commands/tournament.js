@@ -1,5 +1,6 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
 const {addParticipant, removeParticipant, containsParticipant, getParticipants} = require('../src/tournamentConfig.js');
+const { workingReaction, successReaction, errorReaction } = require('../src/reaction.js');
 
 module.exports = {
     topic: 'tournament',
@@ -18,6 +19,7 @@ module.exports = {
         name: 'participants',
         description: 'Returns the participants currently registered for the tournament.',
         execute: async function (message, args) {
+            await workingReaction(message);
             response = await getParticipants();
             participants = response.participants;
 
@@ -26,6 +28,7 @@ module.exports = {
                 result = result + ' - ' + participant.info.username + '\n';
             });
             message.channel.send(result);
+            await successReaction(message);
         }
     },
     
@@ -33,7 +36,10 @@ module.exports = {
         name: 'register',
         description: 'Registers the user for the upcoming tournament.',
         execute: function (message, args) {
-            containsUserInfo(message.author)
+            workingReaction(message)
+            .then(() => {
+                return containsUserInfo(message.author);
+            })
             .then(containsUser => {
                 if (containsUser) {
                     return containsParticipant(message.author);
@@ -50,8 +56,12 @@ module.exports = {
                     return addParticipant(message.author);
                 }
             })
-            .then(() => message.channel.send('You have been successfully registered for the tournament, ' + message.author.username + '!'))
-            .catch(error => {
+            .then(async () => {
+                await successReaction(message);
+                message.channel.send('You have been successfully registered for the tournament, ' + message.author.username + '!')
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
                 console.log('--------', error);
             })
         }
@@ -61,7 +71,10 @@ module.exports = {
         name: 'unregister',
         description: 'Unregisters the user for the upcoming tournament.',
         execute: function (message, args) {
-            containsParticipant(message.author)
+            workingReaction(message)
+            .then(() => {
+                return containsParticipant(message.author);
+            })
             .then(containsParticipant => {
                 if (containsParticipant) {
                     return removeParticipant(message.author);
@@ -70,8 +83,12 @@ module.exports = {
                     throw new Error(message.author.username + ' was never registered in the first place.');
                 }
             })
-            .then(() => message.channel.send('You have successfully been unregistered, ' + message.author.username + '.'))
-            .catch(error => {
+            .then(async () => {
+                await successReaction(message);
+                message.channel.send('You have successfully been unregistered, ' + message.author.username + '.')
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
                 console.log('--------', error);
             })
         }

@@ -1,4 +1,5 @@
 const Discord = require('discord.js');
+const { workingReaction, successReaction } = require('../src/reaction.js');
 
 const {findSummonerIds, matchListTft, userLeagueTft} = require('../src/riotApi.js');
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
@@ -16,17 +17,31 @@ module.exports = {
         name: 'lolchess',
         description: 'Displays a link to the user\'s associated summoner\'s lolchess.',
         execute: function (message, args) {
-            containsUserInfo(message.author)
+            let taggedUser = message.mentions.users.first();
+            if (!taggedUser) {
+                taggedUser = message.author;
+            }
+
+            workingReaction(message)
+            .then(() => {
+                return containsUserInfo(taggedUser);
+            })
             .then(resolve => {
                 if (resolve) {
-                    getUserInfo(message.author)
-                    .then(info => {
-                        console.log(info);
-                        message.channel.send('https://lolchess.gg/profile/na/' + info.summoner.replace(' ', ''));
-                    });
+                    return getUserInfo(taggedUser);
                 } else {
                     message.channel.send('This user has not set a summoner name yet.');
+                    throw new Error('Tagged user has not set summoner name yet.')
                 }
+            })
+            .then(async (info) => {
+                console.log(info);
+                message.channel.send('https://lolchess.gg/profile/na/' + info.summoner.replace(' ', ''));
+                await successReaction(message);
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('---------', error);
             })
         }
     },
@@ -36,8 +51,15 @@ module.exports = {
         aliases: ['', 'games', 'matches'],
         description: 'Displays a user\'s recent match history.',
         execute: function (message, args) {
-            const taggedUser = message.mentions.users.first();
-            containsUserInfo(taggedUser)
+            let taggedUser = message.mentions.users.first();
+            if (!taggedUser) {
+                taggedUser = message.author;
+            }
+
+            workingReaction(message)
+            .then(() => {
+                return containsUserInfo(taggedUser);
+            })
             .then(containsUser => {
                 if (containsUser) {
                     return getUserInfo(taggedUser);
@@ -46,7 +68,7 @@ module.exports = {
                     throw new Error(`${taggedUser.username} has not set a summoner yet.`);
                 }
             })
-            .then(userInfo => {
+            .then(async (userInfo) => {
                 let embed = matchListEmbed;
                 embed.title = `${userInfo.username}'s Match History`;
                 embed.timestamp = new Date();
@@ -56,9 +78,11 @@ module.exports = {
                     embed.fields[0].value += `${matchInfo.game_datetime} - ${matchInfo.placement} - ${matchInfo.composition} - ${matchInfo.carry}\n`;
                 });             
 
-                message.channel.send({embed: embed}); 
+                message.channel.send({embed: embed});
+                await successReaction(message); 
             })
-            .catch((error) => {
+            .catch(async (error) => {
+                await errorReaction(message);
                 console.log('---------', error);
             });
         }

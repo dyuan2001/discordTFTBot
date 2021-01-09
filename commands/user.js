@@ -130,7 +130,7 @@ module.exports = {
             containsUserInfo(taggedUser)
             .then(resolve => {
                 if (resolve) {
-                    return message.react('🔨');
+                    return await workingReaction(message);
                 } else {
                     message.channel.send(taggedUser.username + ` has not set a summoner yet.`);
                 }
@@ -139,13 +139,11 @@ module.exports = {
                 return refreshUserInfo(taggedUser);
             })
             .then(async function() {
-                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
-                await message.react('✅');
-                message.channel.send(taggedUser.username + `'s user info has been refreshed successfully!`);
+                await workingReaction(message);
+                message.channel.send(`${taggedUser.username}'s user info has been refreshed successfully!`);
             })
             .catch(async error => {
-                await message.reactions.removeAll().catch(error => console.error('Failed to clear reactions: ', error));
-                await message.react('❌');
+                await errorReaction(message);
                 console.log('Error refreshing user:', error);
                 message.channel.send(`There was an error refreshing ${taggedUser.username}'s.`);
             })
