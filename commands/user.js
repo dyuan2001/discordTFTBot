@@ -128,7 +128,7 @@ module.exports = {
         execute: function (message, args) {
             const taggedUser = message.mentions.users.first();
             containsUserInfo(taggedUser)
-            .then(resolve => {
+            .then(async resolve => {
                 if (resolve) {
                     return await workingReaction(message);
                 } else {
