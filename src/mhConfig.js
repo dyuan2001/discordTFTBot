@@ -27,12 +27,7 @@ module.exports = {
         const game_datetime = fullMatchInfo.game_datetime;
         let date = new Date(game_datetime * 1000);
         // Get time in EST
-        let invdate = new Date(date.toLocaleString('en-US', {
-            timeZone: 'America/New_York',
-        }));
-        let diff = date.getTime() - invdate.getTime();
-
-        const game_date_obj = new Date(date.getTime() - diff);
+        const game_date_obj = new Date(date.getTime() - 5 * 60 * 60 * 1000);
         const month = game_date_obj.getUTCMonth() + 1;
         const day = game_date_obj.getUTCDate();
         const year = game_date_obj.getUTCFullYear();

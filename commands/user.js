@@ -1,5 +1,6 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
 const {workingReaction, successReaction, errorReaction} = require('../src/reaction.js');
+const { SummonerLeagueDto } = require('twisted/dist/models-dto');
 
 module.exports = {
     topic: 'user',
@@ -28,7 +29,7 @@ module.exports = {
                             .then(message => {
                             message = message.first();
                             if (message.content.toUpperCase() == 'YES' || message.content.toUpperCase() == 'Y') {
-                                message.react('🔨')
+                                workingReaction(message)
                                 .then(response => {
                                     return changeUserInfo(newName, message.author);
                                 })
@@ -93,7 +94,11 @@ module.exports = {
         name: 'rank',
         description: 'Displays a Discord user\'s summoner rank.',
         execute: function (message, args) {
-            const taggedUser = message.mentions.users.first();
+            let taggedUser = message.mentions.users.first();
+            if (!taggedUser) {
+                taggedUser = message.author;
+            }
+
             workingReaction(message)
             .then(() => {
                 return containsUserInfo(taggedUser);
@@ -126,7 +131,11 @@ module.exports = {
         name: 'refresh',
         description: 'Refreshes a Discord user\'s user information, including rank, etc.',
         execute: function (message, args) {
-            const taggedUser = message.mentions.users.first();
+            let taggedUser = message.mentions.users.first();
+            if (!taggedUser) {
+                taggedUser = message.author;
+            }
+
             containsUserInfo(taggedUser)
             .then(async resolve => {
                 if (resolve) {
@@ -139,7 +148,7 @@ module.exports = {
                 return refreshUserInfo(taggedUser);
             })
             .then(async function() {
-                await workingReaction(message);
+                await successReaction(message);
                 message.channel.send(`${taggedUser.username}'s user info has been refreshed successfully!`);
             })
             .catch(async error => {
