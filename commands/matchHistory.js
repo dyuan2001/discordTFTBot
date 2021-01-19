@@ -1,5 +1,5 @@
 const Discord = require('discord.js');
-const { workingReaction, successReaction } = require('../src/reaction.js');
+const { workingReaction, successReaction, errorReaction } = require('../src/reaction.js');
 
 const {findSummonerIds, matchListTft, userLeagueTft} = require('../src/riotApi.js');
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');

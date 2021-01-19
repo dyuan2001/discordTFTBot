@@ -63,6 +63,7 @@ module.exports = {
                     })
                     .catch(async function (failure) {
                         await errorReaction(message);
+                        message.channel.send(`There was an error changing your summoner, ${message.author}.`);
                         console.log('Failed. - ' + failure);
                     });
                 }
@@ -85,6 +86,7 @@ module.exports = {
             })
             .catch(async failure => {
                 await errorReaction(message);
+                message.channel.send(`There was an error changing your summoner, ${message.author}.`);
                 console.log('Failed. - ' + failure)
             });
         }
@@ -142,6 +144,7 @@ module.exports = {
                     return await workingReaction(message);
                 } else {
                     message.channel.send(taggedUser.username + ` has not set a summoner yet.`);
+                    throw new Error('User has not set a summoner yet.');
                 }
             })
             .then(() => {
@@ -154,8 +157,90 @@ module.exports = {
             .catch(async error => {
                 await errorReaction(message);
                 console.log('Error refreshing user:', error);
-                message.channel.send(`There was an error refreshing ${taggedUser.username}'s.`);
+                message.channel.send(`There was an error refreshing ${taggedUser.username}'s user info.`);
             })
         }
     },
+
+    info: {
+        name: 'info',
+        aliases: ['get'],
+        description: 'Displays the info of a Discord user if available.',
+        execute: function (message, args) {
+            let taggedUser = message.mentions.users.first();
+            if (!taggedUser) {
+                taggedUser = message.author;
+            }
+
+            workingReaction(message)
+            .then(() => {
+                return containsUserInfo(taggedUser);
+            })
+            .then(resolve => {
+                if (resolve) {
+                    return getUserInfo(taggedUser);
+                } else {
+                    message.channel.send(taggedUser.username + ' has not set a summoner yet.');
+                    throw new Error('Tagged user has not set a summoner yet.');
+                }
+            })
+            .then(async info => {
+                let embed = userInfoEmbed;
+                embed.title = `${info.username}'s Info`;
+                embed.timestamp = new Date();
+
+                embed.fields[0].value = info.summoner;
+                embed.fields[1].value = info.rank == null ? 'Unranked' : info.rank;
+                embed.fields[2].value = info.comps == null ? 'Unknown' : info.comps;
+                
+                await successReaction(message);
+                message.channel.send({embed: embed});
+            })
+            .catch(async error => {
+                await errorReaction(message);
+                console.log('Error refreshing user:', error);
+                message.channel.send(`There was an error getting ${taggedUser.username}'s user info.`);
+            })
+        }
+    }
 }
+
+let userInfoEmbed = {
+	color: 0x0099ff,
+	// title: 'Some title', Set title in method
+	// url: 'https://discord.js.org',
+	author: {
+		name: 'TFT Announcements',
+		icon_url: 'https://static.wikia.nocookie.net/leagueoflegends/images/6/67/Teamfight_Tactics_icon.png/revision/latest?cb=20191018215638',
+		// url: 'https://discord.js.org',
+	},
+	// description: 'Some description here',
+	// thumbnail: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// },
+	fields: [
+		{
+			name: 'Summoner name:',
+            value: '',
+            inline: false,
+        },
+        {
+            name: 'Rank:',
+            value: '',
+            inline: false,
+        },
+        {
+            name: 'Favorite Compositions:',
+            value: '',
+            inline: false,
+        },
+	],
+	// image: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// // },
+	// timestamp: new Date(),
+	footer: {
+		text: 'Built by @dyuan2001 on GitHub.',
+		icon_url: 'https://cdn.bleacherreport.net/images/team_logos/328x328/georgia_tech_football.png',
+	},
+};
