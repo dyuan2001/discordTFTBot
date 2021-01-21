@@ -72,11 +72,17 @@ module.exports = {
                 let embed = matchListEmbed;
                 embed.title = `${userInfo.username}'s Match History`;
                 embed.timestamp = new Date();
-                const matchesJSMap = new Map(Object.entries(userInfo.matchesMap));
+                const matchesJSMap = new Map(Object.entries(userInfo.mhMap));
+                const matchesJSList = Object.values(userInfo.mhList);
 
-                matchesJSMap.forEach((matchInfo) => {
-                    embed.fields[0].value += `${matchInfo.game_datetime} - ${matchInfo.placement} - ${matchInfo.composition} - ${matchInfo.carry}\n`;
-                });             
+                if (matchesJSMap.size == 0) {
+                    embed.fields[0].value = 'No recent matches found.';
+                } else {
+                    matchesJSList.forEach(matchId => {
+                        let matchInfo = matchesJSMap.get(matchId);
+                        embed.fields[0].value += `${matchInfo.game_datetime} - ${matchInfo.placement} - ${matchInfo.composition} - ${matchInfo.carry}\n`;
+                    })
+                }        
 
                 message.channel.send({embed: embed});
                 await successReaction(message); 

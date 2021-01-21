@@ -11,7 +11,7 @@ const docClient = new AWS.DynamoDB.DocumentClient();
 
 const {findSummonerIds, matchListTft, userLeagueTft, matchDetailsTft} = require('./riotApi.js');
 
-const throttle = 10;
+let throttle = 10;
 
 module.exports = {
     addFullMatchDetails: async function (matchId) {
@@ -126,23 +126,25 @@ module.exports = {
         console.log('updating indiv match history!');
         unprocessedUpToDateMatchHistory = await matchListTft(userInfo.puuid);
         upToDateMatchHistory = unprocessedUpToDateMatchHistory.response;
-        userTriggerMatches = userInfo.triggerMatches;
-        userMatchHistory = userInfo.matches;
 
         if (upToDateMatchHistory.length == 0) {
             console.log('User has not played any matches.');
             return {
-                userMatchHistory: null,
-                triggerMatches: null,
+                mhMap: null,
+                mhList: null,
+                refreshedMatches: 0,
+                refreshedType: null,
             };
         }
 
-        console.log(userTriggerMatches);
-        console.log(userMatchHistory);
-
         // If no match history at all
-        if (!userMatchHistory || userMatchHistory == {}) {
+        if (userInfo.mhMap == undefined) {
             matchesMap = new Map();
+            matchesList = [];
+            if (upToDateMatchHistory.length < throttle) {
+                throttle = upToDateMatchHistory.length;
+            }
+
             for (let i = 0; i < throttle; i++) {
                 console.log('no match history update');
                 let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
@@ -156,33 +158,47 @@ module.exports = {
                     carry: '',
                 };
                 matchesMap.set(upToDateMatchHistory[i], individualMatchInfo);
+                // Keeps track of newest & oldest matches for match updating
+                matchesList.push(upToDateMatchHistory[i]);
             }
-            // Keeps track of newest & oldest matches for match updating
-            let triggerMatches;
-            if (upToDateMatchHistory.length < throttle) {
-                triggerMatches = {
-                    newest: upToDateMatchHistory[0],
-                    oldest: upToDateMatchHistory[upToDateMatchHistory.length - 1],
-                }
-            } else {
-                triggerMatches = {
-                    newest: upToDateMatchHistory[0],
-                    oldest: upToDateMatchHistory[throttle - 1],
-                }
-            }
+            // // Keeps track of newest & oldest matches for match updating
+            // let triggerMatches;
+            // if (upToDateMatchHistory.length < throttle) {
+            //     triggerMatches = {
+            //         newest: upToDateMatchHistory[0],
+            //         oldest: upToDateMatchHistory[upToDateMatchHistory.length - 1],
+            //     }
+            // } else {
+            //     triggerMatches = {
+            //         newest: upToDateMatchHistory[0],
+            //         oldest: upToDateMatchHistory[throttle - 1],
+            //     }
+            // }
             return {
-                userMatchHistory: matchesMap,
-                triggerMatches,
+                mhMap: matchesMap,
+                mhList: matchesList,
+                refreshedMatches: throttle,
+                refreshedType: 'new',
             };
         }
 
+        mhMap = new Map(Object.entries(userInfo.mhMap));
+        mhList = Object.values(userInfo.mhList);
+
+        console.log(mhMap);
+        console.log(mhList);
+
         // If already up to date = update older matches
-        if (upToDateMatchHistory[0] == userTriggerMatches.newest) {
-            const oldestIndex = upToDateMatchHistory.find(userTriggerMatches.oldest);
-            let oldest = userTriggerMatches.oldest;
+        // Also handles the case of nothing to update!
+        if (upToDateMatchHistory[0] == mhList[0]) {
+            const oldestIndex = upToDateMatchHistory.findIndex(matchId => matchId == mhList[mhList.length - 1]);
             try {
+                if (mhList.length + throttle > upToDateMatchHistory.length) {
+                    throttle = upToDateMatchHistory.length - mhList.length;
+                }
                 for (let i = 1; i <= throttle; i++) {
-                    let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i + oldestIndex]);
+                    let matchId = upToDateMatchHistory[i + oldestIndex];
+                    let matchDetails = await module.exports.addFullMatchDetails(matchId);
                     if (matchDetails.tft_set_number < 4) {
                         break;
                     }
@@ -192,29 +208,34 @@ module.exports = {
                         composition: '',
                         carry: '',
                     };
-                    userMatchHistory.set(matchId, individualMatchInfo);
-                    oldest = upToDateMatchHistory[i + oldestIndex];
+                    mhMap.set(matchId, individualMatchInfo);
+                    mhList.push(matchId);
                 }
             } catch (error) {
                 console.log('Error updating match history: ', error);
             } finally {
-                let triggerMatches = {
-                    newest: userTriggerMatches.newest,
-                    oldest: oldest,
+                if (throttle == 0) {
+                    return {
+                        mhMap,
+                        mhList,
+                        refreshedMatches: throttle,
+                        refreshedType: null,
+                    };
                 }
-
-                return {
-                    userMatchHistory,
-                    triggerMatches,
-                };
+                else {
+                    return {
+                        mhMap,
+                        mhList,
+                        refreshedMatches: throttle,
+                        refreshedType: 'old',
+                    };
+                }
             }
         } else { // User played new matches
-            const newestIndex = upToDateMatchHistory.find(userTriggerMatches.newest);
-            for (let i = 0; i < newestIndex; i++) {
-                if (i % throttle == 0) {
-                    await sleep(1000);
-                }
-                let matchDetails = await module.exports.addFullMatchDetails(upToDateMatchHistory[i]);
+            const newestIndex = upToDateMatchHistory.findIndex(matchId => matchId == mhList[0]);
+            for (let i = newestIndex; i > 0; i--) {
+                let matchId = upToDateMatchHistory[i - 1];
+                let matchDetails = await module.exports.addFullMatchDetails(matchI);
                 if (matchDetails.tft_set_number < 4) {
                     break;
                 }
@@ -224,15 +245,14 @@ module.exports = {
                     composition: '',
                     carry: '',
                 };
-                userMatchHistory.set(matchId, individualMatchInfo);
-            }
-            let triggerMatches = {
-                newest: upToDateMatchHistory[0],
-                oldest: userTriggerMatches.oldest,
+                mhMap.set(matchId, individualMatchInfo);
+                mhList.unshift(matchId);
             }
             return {
-                userMatchHistory: matchesMap,
-                triggerMatches,
+                mhMap,
+                mhList,
+                refreshedMatches: newestIndex,
+                refreshedType: 'new',
             };
         }
     },
@@ -262,6 +282,6 @@ module.exports = {
     },
 }
 
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+// function sleep(ms) {
+//     return new Promise(resolve => setTimeout(resolve, ms));
+// }

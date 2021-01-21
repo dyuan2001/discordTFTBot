@@ -54,7 +54,7 @@ module.exports = {
                 } else {
                     workingReaction(message)
                     .then(response => {
-                        return changeUserInfo(args.join('✅'), message.author);
+                        return changeUserInfo(args.join(' '), message.author);
                     })
                     .then(async function(resolve) {
                         console.log('Success!')
@@ -150,9 +150,13 @@ module.exports = {
             .then(() => {
                 return refreshUserInfo(taggedUser);
             })
-            .then(async function() {
+            .then(async function(mhInfo) {
                 await successReaction(message);
-                message.channel.send(`${taggedUser.username}'s user info has been refreshed successfully!`);
+                if (mhInfo.refreshedType != null) {
+                    message.channel.send(`${taggedUser.username}'s user info has been refreshed successfully! (+${mhInfo.refreshedMatches} ${mhInfo.refreshedType} matches)`);
+                } else {
+                    message.channel.send(`${taggedUser.username}'s user info is already up-to-date.`);
+                }
             })
             .catch(async error => {
                 await errorReaction(message);
@@ -199,7 +203,7 @@ module.exports = {
             .catch(async error => {
                 await errorReaction(message);
                 console.log('Error refreshing user:', error);
-                message.channel.send(`There was an error getting ${taggedUser.username}'s user info.`);
+                // message.channel.send(`There was an error getting ${taggedUser.username}'s user info.`);
             })
         }
     }
