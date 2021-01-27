@@ -69,10 +69,7 @@ module.exports = {
         }
 
         let result = await docClient.scan(params).promise();
-
-        console.log(result.Items);
-
-        delete result.Items['754428430191296523'];
+        
         result.Count--;
 
         // Need to access each Item's info element.
