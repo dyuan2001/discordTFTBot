@@ -69,10 +69,42 @@ module.exports = {
         }
 
         let result = await docClient.scan(params).promise();
+
+        console.log(result.Items);
+
+        delete result.Items['754428430191296523'];
+        result.Count--;
+
         // Need to access each Item's info element.
         return {
             participants: result.Items,
             count: result.Count,
         };
+    },
+
+    setTournamentInfo: async function (botId, args) {
+        let info = args.join(' ');
+
+        const params = {
+            TableName: 'discord-bot-tournament',
+            Item: {
+                id: botId,
+                info: info,
+            }
+        };
+
+        await docClient.put(params).promise();
+    },
+
+    getTournamentInfo: async function (botId) {
+        const params = {
+            TableName: 'discord-bot-tournament',
+            Key: {
+                id: botId,
+            }
+        };
+
+        let result = await docClient.get(params).promise();
+        return result.Item.info;
     },
 }

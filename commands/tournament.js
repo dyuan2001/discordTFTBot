@@ -1,6 +1,9 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
-const {addParticipant, removeParticipant, containsParticipant, getParticipants} = require('../src/tournamentConfig.js');
+const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo} = require('../src/tournamentConfig.js');
 const { workingReaction, successReaction, errorReaction } = require('../src/reaction.js');
+
+const botId = '754428430191296523';
+const murrphId = 147203562303127552;
 
 module.exports = {
     topic: 'tournament',
@@ -10,10 +13,44 @@ module.exports = {
         aliases: [''],
         description: 'Provides information about the upcoming tournament.',
         execute: function (message, args) {
-            message.channel.send('The first tournament of Set 4 will take place Saturday, September 26. Prizing details will be posted soon.');
-            console.log('success for tournament');
+            workingReaction(message)
+            .then(() => {
+                return getTournamentInfo(botId);
+            })
+            .then(async (infoString) => {
+                message.channel.send(infoString);
+                await successReaction(message);
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('-------- tournament get info', error);
+            })
         }
     }, 
+
+    setinfo: {
+        name: 'setinfo',
+        description: 'Allows the tournament coordinator to set information about the upcoming tournament.',
+        execute: function (message, args) {
+            workingReaction(message)
+            .then(() => {
+                if (message.author.id == murrphId) {
+                    return setTournamentInfo(botId, args);
+                } else {
+                    message.channel.send('You do not have the permissions for this command. Try the command `!tournament info` instead.');
+                    throw new Error('User did not have the permission to access this command.');
+                }
+            })
+            .then(async () => {
+                message.channel.send('Tournament info updated successfully!');
+                await successReaction(message);
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('-------- tournament set info', error);
+            })
+        }
+    },
     
     participants: {
         name: 'participants',
@@ -25,7 +62,9 @@ module.exports = {
 
             let result = 'Registered: (' + response.count + ')\n';
             participants.forEach(participant => {
-                result = result + ' - ' + participant.info.username + '\n';
+                if (participant.id != botId) {
+                    result = `${result}- ${participant.info.username} (${participant.info.summoner})` + '\n';
+                }
             });
             message.channel.send(result);
             await successReaction(message);
