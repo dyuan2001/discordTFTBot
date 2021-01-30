@@ -63,14 +63,17 @@ module.exports = {
         return result.Item != undefined;
     },
 
-    getParticipants: async function () {
+    getParticipants: async function (botId) {
         const params = {
             TableName: 'discord-bot-tournament',
         }
 
         let result = await docClient.scan(params).promise();
-        
-        result.Count--;
+
+        // Account for TFT Announcements tournament info
+        result.Count = result.Count - 1;
+
+        result.Items = result.Items.filter(participant => participant.id != botId);
 
         // Need to access each Item's info element.
         return {
@@ -80,7 +83,9 @@ module.exports = {
     },
 
     setTournamentInfo: async function (botId, args) {
-        let info = args.join(' ');
+        let info = {
+            description: args.join(' '),
+        }
 
         const params = {
             TableName: 'discord-bot-tournament',
@@ -104,4 +109,80 @@ module.exports = {
         let result = await docClient.get(params).promise();
         return result.Item.info;
     },
+
+    startTournament: async function (botId, lobbies) {
+        console.log('In start tournament function');
+
+        let tournamentTuple = await module.exports.getParticipants(botId);
+
+        console.log('Found participants!', tournamentTuple);
+
+        shuffle(tournamentTuple.participants);
+
+        console.log('Shuffled participants!');
+
+        let filledLobbies = [];
+        let lobbyStatuses = [];
+        for (let i = 0; i < lobbies; i++) {
+            filledLobbies.push(new Array());
+            lobbyStatuses.push(false);
+        }
+
+        console.log('Made empty lobbies');
+
+        for (let i = 0; i < tournamentTuple.participants.length; i++) {
+            filledLobbies[i % lobbies].push(tournamentTuple.participants[i]);
+        }
+
+        let tournamentCoordinators = tournamentTuple.participants.slice(0, lobbies);
+
+        // Create info object
+        let oldInfo = await module.exports.getTournamentInfo(botId);
+
+        let info = {
+            description: oldInfo.description,
+            lobbies: filledLobbies,
+            coordinators: tournamentCoordinators,
+            lobbyStatuses: lobbyStatuses,
+        }
+
+        const params = {
+            TableName: 'discord-bot-tournament',
+            Item: {
+                id: botId,
+                info: info,
+            }
+        };
+
+        await docClient.put(params).promise();
+
+        return filledLobbies;
+    },
 }
+
+/**
+ * Randomly shuffle an array
+ * https://stackoverflow.com/a/2450976/1293256
+ * @param  {Array} array The array to shuffle
+ * @return {String}      The first item in the shuffled array
+ */
+const shuffle = function (array) {
+
+	var currentIndex = array.length;
+	var temporaryValue, randomIndex;
+
+	// While there remain elements to shuffle...
+	while (0 !== currentIndex) {
+		// Pick a remaining element...
+		randomIndex = Math.floor(Math.random() * currentIndex);
+		currentIndex -= 1;
+
+		// And swap it with the current element.
+		temporaryValue = array[currentIndex];
+		array[currentIndex] = array[randomIndex];
+		array[randomIndex] = temporaryValue;
+	}
+
+	return array;
+
+};

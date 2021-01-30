@@ -1,6 +1,5 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
 const {workingReaction, successReaction, errorReaction} = require('../src/reaction.js');
-const { SummonerLeagueDto } = require('twisted/dist/models-dto');
 
 module.exports = {
     topic: 'user',

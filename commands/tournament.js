@@ -1,5 +1,5 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
-const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo} = require('../src/tournamentConfig.js');
+const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo, startTournament} = require('../src/tournamentConfig.js');
 const { workingReaction, successReaction, errorReaction } = require('../src/reaction.js');
 
 const botId = '754428430191296523';
@@ -17,8 +17,8 @@ module.exports = {
             .then(() => {
                 return getTournamentInfo(botId);
             })
-            .then(async (infoString) => {
-                message.channel.send(infoString);
+            .then(async (info) => {
+                message.channel.send(info.description);
                 await successReaction(message);
             })
             .catch(async (error) => {
@@ -57,14 +57,12 @@ module.exports = {
         description: 'Returns the participants currently registered for the tournament.',
         execute: async function (message, args) {
             await workingReaction(message);
-            response = await getParticipants();
+            response = await getParticipants(botId);
             participants = response.participants;
 
             let result = 'Registered: (' + response.count + ')\n';
             participants.forEach(participant => {
-                if (participant.id != botId) {
-                    result = `${result}- ${participant.info.username} (${participant.info.summoner})` + '\n';
-                }
+                result = `${result}- ${participant.info.username} (${participant.info.summoner})` + '\n';
             });
             message.channel.send(result);
             await successReaction(message);
@@ -132,4 +130,79 @@ module.exports = {
             })
         }
     },
+
+    start: {
+        name: 'start',
+        description: 'Begins the tournament and splits users into lobbies.',
+        execute: function (message, args) {
+            workingReaction(message)
+            .then(() => {
+                if (message.author.id == murrphId) {
+                    return startTournament(botId, args[0]);
+                } else {
+                    message.channel.send('You do not have the permissions for this command. Try the command `!tournament info` instead.');
+                    throw new Error('User did not have the permission to access this command.');
+                }
+            })
+            .then(async (lobbies) => {
+                let tournamentBeginString = 'Here are the lobbies you will be playing in!\n'
+                tournamentBeginString += 'Coordinators, please invite the players in your lobby to an unranked TFT match.'
+                message.channel.send(tournamentBeginString);
+
+                for (let i = 0; i < lobbies.length; i++) {
+                    let embed = JSON.parse(JSON.stringify(tournamentLobbyEmbed));
+                    embed.title = `Lobby ${i + 1}`;
+                    embed.timestamp = new Date();
+                    for (let j = 0; j < lobbies[i].length; j++) {
+                        if (j == 0) {
+                            embed.fields[0].value = `${lobbies[i][j].info.username} (${lobbies[i][j].info.summoner})`;
+                        } else {
+                            embed.fields[1].value += `${lobbies[i][j].info.username} (${lobbies[i][j].info.summoner})` + '\n';
+                        }
+                    }
+                    message.channel.send({embed: embed});
+                }
+                await successReaction(message);
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('-------- Error starting tournament: ', error);
+            })
+        }
+    },
 }
+
+let tournamentLobbyEmbed = {
+	color: 0x0099ff,
+	// title: 'Some title', Set title in method
+	// url: 'https://discord.js.org',
+	author: {
+		name: 'TFT Announcements',
+		icon_url: 'https://static.wikia.nocookie.net/leagueoflegends/images/6/67/Teamfight_Tactics_icon.png/revision/latest?cb=20191018215638',
+		// url: 'https://discord.js.org',
+	},
+	// description: 'Some description here',
+	// thumbnail: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// },
+	fields: [
+		{
+			name: 'Coordinator:',
+            value: '',
+            inline: false,
+        },
+        {
+            name: 'Players:',
+            value: '',
+            inline: false,
+        },
+	],
+	// image: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// // },
+	// timestamp: new Date(),
+	footer: {
+		text: 'Built by @dyuan2001 on GitHub.',
+		icon_url: 'https://cdn.bleacherreport.net/images/team_logos/328x328/georgia_tech_football.png',
+	},
+};
