@@ -1,5 +1,5 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
-const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo, startTournament} = require('../src/tournamentConfig.js');
+const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo, startTournament, coordinatorReport} = require('../src/tournamentConfig.js');
 const { workingReaction, successReaction, errorReaction } = require('../src/reaction.js');
 
 const botId = '754428430191296523';
@@ -135,10 +135,13 @@ module.exports = {
         name: 'start',
         description: 'Begins the tournament and splits users into lobbies.',
         execute: function (message, args) {
+            let pointsObject = Object.assign({}, args);
+            delete pointsObject['0'];
+
             workingReaction(message)
             .then(() => {
                 if (message.author.id == murrphId) {
-                    return startTournament(botId, args[0]);
+                    return startTournament(botId, args[0], pointsObject);
                 } else {
                     message.channel.send('You do not have the permissions for this command. Try the command `!tournament info` instead.');
                     throw new Error('User did not have the permission to access this command.');
@@ -170,6 +173,86 @@ module.exports = {
             })
         }
     },
+
+    report: {
+        name: 'report',
+        description: 'Reports the coordinator\'s match as completed and tallies the scores.',
+        execute: function (message, args) {
+            workingReaction(message)
+            .then(() => {
+                return getTournamentInfo(botId);
+            })
+            .then((botInfo) => {
+                let lobbyNumber;
+                for (let i = 0; i < botInfo.coordinators.length; i++) {
+                    if (message.author.id == botInfo.coordinators[i].id) {
+                        lobbyNumber = i;
+                        break;
+                    }
+                }
+
+                if (lobbyNumber == undefined) {
+                    message.channel.send('You do not have the permission to report your match. Please ask the coordinator to run the command.');
+                    throw new Error('User does not have the permissions');
+                }
+
+                if (botInfo.lobbyStatuses[lobbyNumber]) {
+                    message.channel.send('You have already reported your match, no further action is needed.');
+                    throw new Error('User has already reported the match.');
+                }
+
+                return coordinatorReport(botId, botInfo, lobbyNumber);
+            })
+            .then(async (completed) => {
+                message.channel.send(`Report successful, ${message.author}!`);
+                await successReaction(message);
+                if (completed) {
+                    message.channel.send(`Here are the final standings for the round:`);
+                    module.exports.scores.execute(message, args);
+                }
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('-------- Error reporting results: ', error);
+            })
+        }
+    },
+
+    scores: {
+        name: 'scores',
+        aliases: ['points', 'standings', 'ranking', 'rankings',],
+        description: 'Displays the current standings ofo the tournament.',
+        execute: function(message, args) {
+            workingReaction(message)
+            .then(() => {
+                return getParticipants(botId);
+            })
+            .then(async participantsTuple => {
+                participants = participantsTuple.participants;
+                participants.sort((a, b) => {
+                    a.info.points = a.info.points == undefined ? 0 : a.info.points;
+                    b.info.points = b.info.points == undefined ? 0 : b.info.points;
+                    let result = (a.info.points < b.info.points) ? 1 : -1;
+                    return result;
+                });
+
+                let embed = JSON.parse(JSON.stringify(tournamentPointsEmbed));
+                embed.timestamp = new Date();
+
+                participants.forEach(participant => {
+                    embed.fields[0].value += `${participant.info.username} (${participant.info.summoner}) - ${participant.info.points}\n`;
+                });
+
+                message.channel.send({embed: embed});
+
+                await successReaction(message);
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('-------- Error getting scores: ', error);
+            })
+        }
+    },
 }
 
 let tournamentLobbyEmbed = {
@@ -193,6 +276,36 @@ let tournamentLobbyEmbed = {
         },
         {
             name: 'Players:',
+            value: '',
+            inline: false,
+        },
+	],
+	// image: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// // },
+	// timestamp: new Date(),
+	footer: {
+		text: 'Built by @dyuan2001 on GitHub.',
+		icon_url: 'https://cdn.bleacherreport.net/images/team_logos/328x328/georgia_tech_football.png',
+	},
+};
+
+let tournamentPointsEmbed = {
+	color: 0x0099ff,
+	title: 'Current Standings',
+	// url: 'https://discord.js.org',
+	author: {
+		name: 'TFT Announcements',
+		icon_url: 'https://static.wikia.nocookie.net/leagueoflegends/images/6/67/Teamfight_Tactics_icon.png/revision/latest?cb=20191018215638',
+		// url: 'https://discord.js.org',
+	},
+	// description: 'Some description here',
+	// thumbnail: {
+	// 	url: 'https://i.imgur.com/wSTFkRM.png',
+	// },
+	fields: [
+		{
+			name: 'Players - Points:',
             value: '',
             inline: false,
         },
