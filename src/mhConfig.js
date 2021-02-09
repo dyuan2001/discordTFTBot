@@ -235,7 +235,7 @@ module.exports = {
             const newestIndex = upToDateMatchHistory.findIndex(matchId => matchId == mhList[0]);
             for (let i = newestIndex; i > 0; i--) {
                 let matchId = upToDateMatchHistory[i - 1];
-                let matchDetails = await module.exports.addFullMatchDetails(matchI);
+                let matchDetails = await module.exports.addFullMatchDetails(matchId);
                 if (matchDetails.tft_set_number < 4) {
                     break;
                 }
