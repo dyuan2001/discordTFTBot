@@ -239,12 +239,16 @@ module.exports = {
                 if (matchDetails.tft_set_number < 4) {
                     break;
                 }
+                let lobbyParticipantsMap = new Map(Object.entries(matchDetails.participants));
+                let userMatchInfo = lobbyParticipantsMap.get(userInfo.puuid);
+                let userPlacement = userMatchInfo.placement;
                 const individualMatchInfo = { // Insert carry function here for carry
                     game_datetime: matchDetails.game_datetime,
-                    placement: matchDetails.participants[userInfo.puuid].placement,
+                    placement: userPlacement,
                     composition: '',
                     carry: '',
                 };
+                console.log('placement: ', userPlacement);
                 mhMap.set(matchId, individualMatchInfo);
                 mhList.unshift(matchId);
             }

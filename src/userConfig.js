@@ -18,13 +18,29 @@ module.exports = {
         let puuid = arrIds.puuid;
         let encryptedId = arrIds.encryptedId;
 
+        // first put
         let userInfo = {
             username: author.username,
             summoner: summonerName,
             puuid: puuid,
             encryptedId: encryptedId,
+            rank: null,
+            comps: null,
+            mhMap: null,
+            mhList: null,
         }
 
+        const params = {
+            TableName: 'discord-tft-bot',
+            Item: {
+                id: author.id,
+                info: userInfo,
+            }
+        }
+        console.log('Putting changed user data in table.');
+        await docClient.put(params).promise();
+
+        // put if not fail
         module.exports.refreshUserInfo(author, userInfo)
         .catch(error => {
             console.log('Error changing user info: ', error);
