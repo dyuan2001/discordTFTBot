@@ -267,7 +267,7 @@ module.exports = {
         let tournamentCoordinators = [];
 
         for (let i = 0; i < numParticipants; i++) {
-            filledLobbies[Math.floor(i / 8)].push(tournamentTuple.participants[i]);
+            filledLobbies[Math.floor(i / 8)].push(participants[i]);
             if (i % 8 == 0) {
                 tournamentCoordinators.push(participants[i]);
             }
