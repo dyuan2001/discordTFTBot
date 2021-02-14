@@ -12,6 +12,7 @@ const docClient = new AWS.DynamoDB.DocumentClient();
 const {getUserInfo} = require('./userConfig.js');
 const {matchListTft, findSummonerIds} = require('./riotApi.js');
 const {addFullMatchDetails} = require('./mhConfig.js');
+const { participants } = require('../commands/tournament.js');
 
 module.exports = {
     addParticipant: async function (author) {
@@ -236,6 +237,69 @@ module.exports = {
         });
 
         return completed;
+    },
+
+    continueTournament: async function (botId, lobbies, numParticipants, pointsObjectArray) {
+        let tournamentTuple = await module.exports.getParticipants(botId);
+
+        console.log('Found participants!', tournamentTuple);
+
+        participants = tournamentTuple.participants;
+        participants.sort((a, b) => {
+            a.info.points = a.info.points == undefined ? 0 : a.info.points;
+            b.info.points = b.info.points == undefined ? 0 : b.info.points;
+            let result = (a.info.points < b.info.points) ? 1 : -1;
+            return result;
+        });
+
+        console.log('Sorted participants!');
+
+        let filledLobbies = [];
+        let lobbyStatuses = [];
+        let pointsPerLobby = [];
+        for (let i = 0; i < lobbies; i++) {
+            filledLobbies.push(new Array());
+            lobbyStatuses.push(false);
+            pointsPerLobby.push(pointsObjectArray[i]);
+        }
+
+        console.log('Made empty lobbies');
+        let tournamentCoordinators = [];
+
+        for (let i = 0; i < numParticipants; i++) {
+            filledLobbies[Math.floor(i / 8)].push(tournamentTuple.participants[i]);
+            if (i % 8 == 0) {
+                tournamentCoordinators.push(participants[i]);
+            }
+            // if (i == 10 || i == 2 || i == 6 || i == 9 || i == 11 || i == 13 || i == 14 || i == 15) {
+            //     filledLobbies[0].push(tournamentTuple.participants[i]);
+            // } else {
+            //     filledLobbies[1].push(tournamentTuple.participants[i]);
+            // }
+        }
+
+        // Create info object
+        let oldInfo = await module.exports.getTournamentInfo(botId);
+
+        let info = {
+            description: oldInfo.description,
+            lobbies: filledLobbies,
+            coordinators: tournamentCoordinators,
+            lobbyStatuses: lobbyStatuses,
+            pointsPerLobby,
+        }
+
+        const params = {
+            TableName: 'discord-bot-tournament',
+            Item: {
+                id: botId,
+                info: info,
+            }
+        };
+
+        await docClient.put(params).promise();
+
+        return filledLobbies;
     },
 }
 

@@ -1,5 +1,5 @@
 const {changeUserInfo, refreshUserInfo, containsUserInfo, getUserInfo} = require('../src/userConfig.js');
-const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo, startTournament, coordinatorReport} = require('../src/tournamentConfig.js');
+const {addParticipant, removeParticipant, containsParticipant, getParticipants, setTournamentInfo, getTournamentInfo, startTournament, coordinatorReport, continueTournament} = require('../src/tournamentConfig.js');
 const { workingReaction, successReaction, errorReaction } = require('../src/reaction.js');
 
 const botId = '754428430191296523';
@@ -250,6 +250,53 @@ module.exports = {
             .catch(async (error) => {
                 await errorReaction(message);
                 console.log('-------- Error getting scores: ', error);
+            })
+        }
+    },
+
+    continue: {
+        name: 'continue',
+        description: 'Continues the tournament with the specified number of players, lobbies, and points.',
+        execute: function (message, args) {
+            let pointsObjectArray = [];
+            for (let i = 0; i < args[0]; i++) {
+                let pointsObject = Object.assign({}, args.slice(i * 9 + 2, (i + 1) * 9 + 2));
+                delete pointsObject['0'];
+                pointsObjectArray.push(pointsObject);
+            }
+
+            workingReaction(message)
+            .then(() => {
+                if (message.author.id == murrphId) {
+                    return continueTournament(botId, args[0], args[1], pointsObjectArray);
+                } else {
+                    message.channel.send('You do not have the permissions for this command. Try the command `!tournament info` instead.');
+                    throw new Error('User did not have the permission to access this command.');
+                }
+            })
+            .then(async (lobbies) => {
+                let tournamentBeginString = 'Here are the lobbies you will be playing in!\n'
+                tournamentBeginString += 'Coordinators, please invite the players in your lobby to an unranked TFT match.'
+                message.channel.send(tournamentBeginString);
+
+                for (let i = 0; i < lobbies.length; i++) {
+                    let embed = JSON.parse(JSON.stringify(tournamentLobbyEmbed));
+                    embed.title = `Lobby ${i + 1}`;
+                    embed.timestamp = new Date();
+                    for (let j = 0; j < lobbies[i].length; j++) {
+                        if (j == 0) {
+                            embed.fields[0].value = `${lobbies[i][j].info.username} (${lobbies[i][j].info.summoner})`;
+                        } else {
+                            embed.fields[1].value += `${lobbies[i][j].info.username} (${lobbies[i][j].info.summoner})` + '\n';
+                        }
+                    }
+                    message.channel.send({embed: embed});
+                }
+                await successReaction(message);
+            })
+            .catch(async (error) => {
+                await errorReaction(message);
+                console.log('-------- Error continuing tournament: ', error);
             })
         }
     },
